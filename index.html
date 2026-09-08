@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IPDAS Master & Video PDA Studio - 醫病共享決策生成實作與動畫工作坊</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            teal: {
+              50: '#f0fdfa', 100: '#ccfbf1', 200: '#99f6e4', 300: '#5eead4',
+              400: '#2dd4bf', 500: '#14b8a6', 600: '#0d9488', 700: '#0f766e',
+              800: '#115e59', 900: '#134e4a', 950: '#042f2e'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col antialiased selection:bg-teal-500 selection:text-white">
+
+  <!-- 頂部導航列 (Top Navigation Header) -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <!-- Logo & Title -->
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-700 to-teal-500 flex items-center justify-center text-white shadow-md shadow-teal-500/20 font-black text-xl">
+            ⚕️
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="font-extrabold text-base sm:text-lg text-slate-900 tracking-tight">IPDAS Master & Video PDA Studio</h1>
+              <span class="badge badge-primary hidden sm:inline-flex">彰濱秀傳演練版</span>
+            </div>
+            <p class="text-2xs sm:text-xs text-slate-500">2026 醫病共享決策核心教師培訓研討會・中國附醫教學部 林頴逸 副管理師</p>
+          </div>
+        </div>
+
+        <!-- Action Tools -->
+        <div class="flex items-center gap-2">
+          <!-- API 設定按鈕 -->
+          <button onclick="document.getElementById('api-modal').classList.toggle('hidden')" class="btn-secondary px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5" title="設定 Gemini API Key">
+            <span>⚙️</span>
+            <span class="hidden md:inline">AI 引擎設定</span>
+          </button>
+
+          <!-- 匯出演練資料 JSON -->
+          <button onclick="App.exportSessionJSON()" class="btn-secondary px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5" title="匯出本場演練資料 JSON">
+            <span>💾</span>
+            <span class="hidden md:inline">匯出資料</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 頁籤導航欄 (Tab Navigation Bar) -->
+    <div class="bg-slate-50 border-t border-slate-200 px-4 sm:px-6 lg:px-8">
+      <div class="max-w-7xl mx-auto flex space-x-1 sm:space-x-4 overflow-x-auto py-1 scrollbar-none">
+        <button class="nav-tab-btn nav-tab-active px-3 py-2 text-xs sm:text-sm font-medium rounded-lg flex items-center gap-1.5 whitespace-nowrap" data-tab="tab-input">
+          <span>📝</span> 1. 案例輸入與收集
+        </button>
+        <button class="nav-tab-btn px-3 py-2 text-xs sm:text-sm font-medium rounded-lg flex items-center gap-1.5 whitespace-nowrap" data-tab="tab-audit">
+          <span>📊</span> 2. IPDAS 智慧判讀報告
+        </button>
+        <button class="nav-tab-btn px-3 py-2 text-xs sm:text-sm font-medium rounded-lg flex items-center gap-1.5 whitespace-nowrap" data-tab="tab-optimize">
+          <span>✨</span> 3. AI 重構 PDA 檢視與匯出
+        </button>
+        <button class="nav-tab-btn px-3 py-2 text-xs sm:text-sm font-medium rounded-lg flex items-center gap-1.5 whitespace-nowrap" data-tab="tab-script">
+          <span>🎬</span> 4. Video PDA 分鏡腳本
+        </button>
+        <button class="nav-tab-btn px-3 py-2 text-xs sm:text-sm font-medium rounded-lg flex items-center gap-1.5 whitespace-nowrap" data-tab="tab-player">
+          <span>📽️</span> 5. 互動影院與語音試聽
+        </button>
+        <button class="nav-tab-btn px-3 py-2 text-xs sm:text-sm font-medium rounded-lg flex items-center gap-1.5 whitespace-nowrap" data-tab="tab-cheatsheet">
+          <span>📚</span> 6. 課程教案與 Prompt 錦囊
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主內容區 (Main Content Area) -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+
+    <!-- ========================================== -->
+    <!-- TAB 1: 案例輸入與資料收集 (Case Input) -->
+    <!-- ========================================== -->
+    <section id="tab-input" class="tab-pane">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- 左側輸入編輯區 (8 欄) -->
+        <div class="lg:col-span-8 space-y-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
+              <div>
+                <h2 class="font-bold text-lg text-slate-900 flex items-center gap-2">
+                  <span>📝</span> 輸入臨床 PDA 草案或決策情境
+                </h2>
+                <p class="text-xs text-slate-500">可貼上各單位自行設計之 PDA 文字，或選擇內建演練範例</p>
+              </div>
+
+              <!-- 預設案例選單 -->
+              <div class="flex items-center gap-2">
+                <label class="text-xs font-bold text-slate-600">載入案例：</label>
+                <select id="preset-case-select" class="text-xs bg-slate-50 border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-teal-500 font-medium">
+                  <!-- 由 JS 動態注入 -->
+                </select>
+              </div>
+            </div>
+
+            <!-- 臨床情境基本欄位 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">疾病狀況 / 臨床決策主題：</label>
+                <input id="input-disease-name" type="text" class="w-full text-xs p-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500" placeholder="例如：侷限性早期攝護腺癌 (第 I-II 期)">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">目標適用對象與族群：</label>
+                <input id="input-target-audience" type="text" class="w-full text-xs p-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500" placeholder="例如：65歲以上成年男性，新確診低度惡性病友">
+              </div>
+            </div>
+
+            <!-- 草案大文字區 -->
+            <div>
+              <div class="flex justify-between items-center mb-1">
+                <label class="block text-xs font-bold text-slate-700">PDA 草案內容全文 (包含選項、優缺點、機率、說明等)：</label>
+                <span class="text-2xs text-slate-400">支援純文字與 Markdown</span>
+              </div>
+              <textarea id="raw-pda-input" rows="14" class="w-full text-xs p-3.5 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 font-mono leading-relaxed" placeholder="請在此貼上臨床決策輔助工具草案..."></textarea>
+            </div>
+
+            <!-- 啟動按鈕列 -->
+            <div class="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+              <div class="text-xs text-slate-500 flex items-center gap-1.5">
+                <span>💡</span> 系統將自動進行 26 項指標判讀、遺漏值偵測與人因優化
+              </div>
+              <div class="flex gap-2">
+                <button onclick="App.runAudit()" class="btn-primary px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2">
+                  <span>🚀</span> 開始 IPDAS 智慧品質檢核與重構
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 右側輔助說明與指引 (4 欄) -->
+        <div class="lg:col-span-4 space-y-4">
+          <!-- 上午場實作指引卡 -->
+          <div class="bg-gradient-to-br from-teal-900 to-slate-900 p-5 rounded-2xl text-white shadow-md">
+            <span class="badge bg-teal-500/30 text-teal-200 border border-teal-400/30 text-2xs mb-2">11:00~12:00 實作重點</span>
+            <h3 class="font-bold text-base text-white mb-2">掌握科技：PDA 生成與檢核</h3>
+            <ul class="text-xs text-teal-100 space-y-2 leading-relaxed">
+              <li class="flex items-start gap-1.5">
+                <span class="text-teal-400 font-bold">1.</span>
+                <span><strong>審視完整性：</strong> 檢查是否漏掉國際指引標準的『積極監控/不處置』選項。</span>
+              </li>
+              <li class="flex items-start gap-1.5">
+                <span class="text-teal-400 font-bold">2.</span>
+                <span><strong>人因統一分母：</strong> 杜絕混用 % 與分數，一律採用「每 100 人」標準基準。</span>
+              </li>
+              <li class="flex items-start gap-1.5">
+                <span class="text-teal-400 font-bold">3.</span>
+                <span><strong>雙向平衡框架：</strong> 同時呈現正面存活率與負面風險，避免單向偏誤。</span>
+              </li>
+              <li class="flex items-start gap-1.5">
+                <span class="text-teal-400 font-bold">4.</span>
+                <span><strong>全人價值觀：</strong> 設計 1~5 分量表，引導病患梳理生活重心。</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- IPDAS 26 項七大維度速覽 -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+            <h4 class="font-bold text-sm text-slate-900 mb-3 flex items-center gap-2">
+              <span>📋</span> IPDAS 檢核表七大核心維度
+            </h4>
+            <div class="space-y-2 text-xs">
+              <div class="p-2 bg-slate-50 rounded-lg flex justify-between items-center">
+                <span class="text-slate-700">1. 信息的提供</span>
+                <span class="badge badge-primary">8 項指標</span>
+              </div>
+              <div class="p-2 bg-slate-50 rounded-lg flex justify-between items-center">
+                <span class="text-slate-700">2. 呈現結果的可能性</span>
+                <span class="badge badge-primary">9 項指標</span>
+              </div>
+              <div class="p-2 bg-slate-50 rounded-lg flex justify-between items-center">
+                <span class="text-slate-700">3. 澄清與表達價值觀</span>
+                <span class="badge badge-primary">3 項指標</span>
+              </div>
+              <div class="p-2 bg-slate-50 rounded-lg flex justify-between items-center">
+                <span class="text-slate-700">4. 平衡方式呈現信息</span>
+                <span class="badge badge-primary">2 項指標</span>
+              </div>
+              <div class="p-2 bg-slate-50 rounded-lg flex justify-between items-center">
+                <span class="text-slate-700">5. 引用最新科學證據</span>
+                <span class="badge badge-primary">3 項指標</span>
+              </div>
+              <div class="p-2 bg-slate-50 rounded-lg flex justify-between items-center">
+                <span class="text-slate-700">6. 披露利益衝突</span>
+                <span class="badge badge-primary">2 項指標</span>
+              </div>
+              <div class="p-2 bg-slate-50 rounded-lg flex justify-between items-center">
+                <span class="text-slate-700">7. 使用通俗語言 (易讀性)</span>
+                <span class="badge badge-primary">2 項指標</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- TAB 2: IPDAS 智慧判讀報告 (Audit Report) -->
+    <!-- ========================================== -->
+    <section id="tab-audit" class="tab-pane hidden space-y-6">
+      
+      <!-- 總分與等級儀表板 (Top KPI Cards) -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <!-- 總體評分 -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">IPDAS 綜合評分</p>
+            <div class="flex items-baseline gap-1 mt-1">
+              <span id="audit-overall-score" class="text-3xl font-black text-teal-600">--</span>
+              <span class="text-xs text-slate-400 font-bold">/ 100 分</span>
+            </div>
+            <p id="audit-grade-title" class="text-xs text-slate-600 mt-1 font-medium">請先執行檢核</p>
+          </div>
+          <div>
+            <span id="audit-grade-badge" class="badge badge-warning text-sm">--</span>
+          </div>
+        </div>
+
+        <!-- 26項通過率 -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+          <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">指標通過率</p>
+          <div class="mt-1">
+            <span id="audit-pass-rate" class="text-2xl font-black text-slate-900">--</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">涵蓋內容與發展過程 26 項</p>
+        </div>
+
+        <!-- 易讀性檢測 -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+          <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">語言易讀性評估</p>
+          <div class="mt-1">
+            <span id="audit-readability-score" class="text-2xl font-black text-indigo-600">--</span>
+          </div>
+          <p id="audit-readability-level" class="text-xs text-slate-600 mt-1 font-medium">--</p>
+        </div>
+
+        <!-- 人因警示數 -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+          <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">人因工程與偏誤警示</p>
+          <div class="mt-1">
+            <span id="audit-warnings-count" class="text-2xl font-black text-rose-600">--</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">分母混淆 / 框架效應 / 遺漏項</p>
+        </div>
+      </div>
+
+      <!-- 維度長條圖與改善處方 (Middle Row) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- 七大維度分析 (5 欄) -->
+        <div class="lg:col-span-5 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+          <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+            <span>📊</span> IPDAS 七大維度合規分布
+          </h3>
+          <div id="audit-categories-bars">
+            <!-- 由 JS 渲染 -->
+          </div>
+        </div>
+
+        <!-- 人因偏差警示與處方 (7 欄) -->
+        <div class="lg:col-span-7 space-y-4">
+          <!-- 警示清單 -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+            <h3 class="font-bold text-sm text-slate-900 mb-3 flex items-center gap-2">
+              <span>⚠️</span> 認知人因偏誤診斷 (Cognitive Biases)
+            </h3>
+            <div id="audit-warnings-container">
+              <!-- 由 JS 渲染 -->
+            </div>
+          </div>
+
+          <!-- 具體改進處方 -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+                <span>💊</span> 臨床教師具體改進處方 (Actionable Prescriptions)
+              </h3>
+              <button onclick="App.switchTab('tab-optimize')" class="btn-primary px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1">
+                <span>✨</span> 一鍵查看 AI 重構成果
+              </button>
+            </div>
+            <div id="audit-recommendations-list" class="max-h-96 overflow-y-auto pr-1">
+              <!-- 由 JS 渲染 -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 26 項完整檢核表 (Bottom Table) -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
+          <div>
+            <h3 class="font-bold text-base text-slate-900 flex items-center gap-2">
+              <span>📋</span> IPDAS 26 項指標逐項檢核明細 (彰濱秀傳演練版)
+            </h3>
+            <p class="text-xs text-slate-500">依據各指標比對結果與人因工程設計指引</p>
+          </div>
+
+          <!-- 篩選器 -->
+          <div class="flex items-center gap-1.5">
+            <button onclick="App.setChecklistFilter('all')" data-filter="all" class="checklist-filter-btn btn-primary px-3 py-1 rounded-lg text-xs font-bold">全部 (26)</button>
+            <button onclick="App.setChecklistFilter('missing')" data-filter="missing" class="checklist-filter-btn btn-secondary px-3 py-1 rounded-lg text-xs font-bold">僅看遺漏/未達標</button>
+            <button onclick="App.setChecklistFilter('passed')" data-filter="passed" class="checklist-filter-btn btn-secondary px-3 py-1 rounded-lg text-xs font-bold">已通過項目</button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+              <tr>
+                <th class="py-2.5 px-3 w-12">#</th>
+                <th class="py-2.5 px-3 w-64">檢核指標與維度</th>
+                <th class="py-2.5 px-3 w-36">判定結果</th>
+                <th class="py-2.5 px-3">臨床診斷理由與人因建議</th>
+              </tr>
+            </thead>
+            <tbody id="audit-checklist-tbody">
+              <!-- 由 JS 渲染 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- TAB 3: AI 重構 PDA 檢視與匯出 (Optimized PDA) -->
+    <!-- ========================================== -->
+    <section id="tab-optimize" class="tab-pane hidden space-y-6">
+      
+      <!-- 頂部操作與亮點 -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span id="opt-pda-badge" class="badge badge-success text-xs font-bold">IPDAS 黃金標準版</span>
+            <h2 id="opt-pda-title" class="text-base sm:text-lg font-extrabold text-slate-900">決策輔助工具標準重構版</h2>
+          </div>
+          <p class="text-xs text-slate-500">已補足遺漏值、統一每100人分母、注入雙向框架與全人價值觀量表</p>
+        </div>
+
+        <!-- 匯出按鈕群 -->
+        <div class="flex flex-wrap items-center gap-2 no-print">
+          <button onclick="App.printPDA()" class="btn-primary px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5">
+            <span>🖨️</span> 列印 / 匯出醫療 PDF
+          </button>
+          <button onclick="App.exportMarkdown()" class="btn-secondary px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5">
+            <span>📄</span> 匯出 Markdown
+          </button>
+          <button onclick="App.switchTab('tab-script')" class="btn-primary px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700">
+            <span>🎬</span> 轉為 Video PDA 腳本
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- 左側：修改回饋說明 (4 欄) -->
+        <div class="lg:col-span-4 space-y-4 no-print">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+            <h3 class="font-bold text-sm text-slate-900 mb-3 flex items-center gap-2">
+              <span>💡</span> AI 重構亮點與臨床回饋 (Changelog)
+            </h3>
+            <div id="opt-changelog-list">
+              <!-- 由 JS 渲染 -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 右側：完整 5 步驟 SDM PDA 成果展示 (8 欄) -->
+        <div class="lg:col-span-8 bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-xs">
+          <div id="opt-pda-content">
+            <!-- 由 JS 渲染 -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- TAB 4: Video PDA 分鏡腳本工作室 (Script Studio) -->
+    <!-- ========================================== -->
+    <section id="tab-script" class="tab-pane hidden space-y-6">
+      
+      <!-- 頂部資訊卡 -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <span class="badge badge-info text-2xs mb-1">13:00~14:00 實務練習</span>
+          <h2 id="script-studio-title" class="text-base sm:text-lg font-extrabold text-slate-900">5 幕式 Video PDA 動畫腳本工作室</h2>
+          <p id="script-studio-duration" class="text-xs text-slate-500 mt-0.5">預估影片長度：3 分 30 秒・符合認知負荷雙重編碼理論</p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="App.exportScriptText()" class="btn-secondary px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5">
+            <span>💾</span> 匯出完整腳本與 Prompt
+          </button>
+          <button onclick="App.switchTab('tab-player')" class="btn-primary px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5">
+            <span>📽️</span> 進入動態影院預覽
+          </button>
+        </div>
+      </div>
+
+      <!-- 5 幕分鏡清單 -->
+      <div id="script-scenes-container">
+        <!-- 由 JS 渲染 -->
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- TAB 5: 多媒體影院與語音合成 (Theatre Player) -->
+    <!-- ========================================== -->
+    <section id="tab-player" class="tab-pane hidden space-y-6">
+      
+      <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+        
+        <!-- 頂部控制條 -->
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="font-black text-lg text-slate-900">Video PDA 互動影院演示</h2>
+              <span id="theatre-act-badge" class="badge badge-primary text-xs font-bold">第 1 幕</span>
+              <span id="theatre-timing-badge" class="badge badge-secondary text-2xs">00:00 - 00:30</span>
+            </div>
+            <p class="text-xs text-slate-500 mt-0.5">結合 Web Speech API 語音合成、動態 100 人矩陣圖與人因視覺引導</p>
+          </div>
+
+          <!-- 播放控制鍵 -->
+          <div class="flex items-center gap-2">
+            <button onclick="MediaPlayer.prevScene()" class="btn-secondary px-3 py-1.5 rounded-lg text-xs font-bold" title="上一幕">
+              ⏮️ 上一幕
+            </button>
+            <button id="theatre-btn-play" onclick="MediaPlayer.playAll()" class="btn-primary px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1">
+              <span>▶️</span> 自動連播
+            </button>
+            <button onclick="MediaPlayer.stop()" class="btn-secondary px-3 py-1.5 rounded-lg text-xs font-bold" title="停止">
+              ⏹️ 停止
+            </button>
+            <button onclick="MediaPlayer.nextScene()" class="btn-secondary px-3 py-1.5 rounded-lg text-xs font-bold" title="下一幕">
+              ⏭️ 下一幕
+            </button>
+
+            <!-- 語速切換 -->
+            <select onchange="MediaPlayer.setSpeed(this.value)" class="text-xs bg-slate-50 border border-slate-300 rounded-lg p-1.5 font-bold">
+              <option value="0.85">0.85x 沉穩</option>
+              <option value="1.0" selected>1.0x 標準</option>
+              <option value="1.2">1.2x 快速</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 影院主畫布 (16:9 Screen) -->
+        <div class="theatre-screen">
+          <div id="theatre-canvas" class="w-full h-full flex items-center justify-center">
+            <!-- 由 MediaPlayer 動態注入視覺 -->
+          </div>
+        </div>
+
+        <!-- 字幕與語音同步欄 (Subtitles Bar) -->
+        <div class="p-4 bg-slate-900 text-white rounded-xl border border-slate-800 shadow-inner flex items-start gap-3">
+          <div class="w-8 h-8 rounded-full bg-teal-500/20 text-teal-400 flex items-center justify-center text-base shrink-0 border border-teal-500/30">
+            🎙️
+          </div>
+          <div class="flex-1">
+            <span class="text-2xs font-bold text-teal-400 uppercase tracking-wider block mb-0.5">旁白配音同步字幕</span>
+            <p id="theatre-subtitles" class="text-sm font-medium text-slate-100 leading-relaxed">
+              點擊「自動連播」或「試聽」開始播放語音旁白與分鏡動畫...
+            </p>
+          </div>
+        </div>
+
+        <!-- 幕次切換時間軸 (Timeline Dots) -->
+        <div class="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+          <div id="theatre-timeline-dots" class="flex flex-wrap items-center gap-2">
+            <!-- 由 MediaPlayer 渲染 -->
+          </div>
+
+          <div id="theatre-hf-tip" class="text-xs text-teal-800 bg-teal-50 px-3 py-1.5 rounded-lg border border-teal-200">
+            <strong>人因視聽指引：</strong> 雙重編碼理論——畫面與聲音同步跳動
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- TAB 6: 課程教案與 Prompt 錦囊 (Workshop Guide) -->
+    <!-- ========================================== -->
+    <section id="tab-cheatsheet" class="tab-pane hidden space-y-6">
+      
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- 左側：研討會 9/11 演講教案指引 (7 欄) -->
+        <div class="lg:col-span-7 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+          <div class="border-b border-slate-100 pb-3">
+            <span class="badge badge-primary text-xs font-bold mb-1">講師專用教案</span>
+            <h2 class="text-lg font-extrabold text-slate-900">2026/09/11 兩場實務演講操作指引</h2>
+            <p class="text-xs text-slate-500">主講人：中國醫藥大學附設醫院教學部 林頴逸 副管理師</p>
+          </div>
+
+          <!-- 上午場教案 -->
+          <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs leading-relaxed">
+            <div class="flex items-center justify-between font-bold text-teal-800">
+              <span class="text-sm">🌅 上午場 (11:00~12:00) 決策輔助工具生成實作與品質檢核</span>
+              <span class="badge badge-primary">60 分鐘</span>
+            </div>
+            <p><strong>教學核心：</strong> 引導臨床教師突破「傳統衛教宣導」思維，學會運用 IPDAS 26 項國際標準與人因工程原則重構 PDA。</p>
+            <ul class="list-disc pl-4 space-y-1 text-slate-700">
+              <li><strong>00-15m (觀念破題)：</strong> 介紹 IPDAS 26 項指標、人因分母一致性（每100人基準）與雙向平衡框架。</li>
+              <li><strong>15-35m (抓漏實戰)：</strong> 現場載入【早期攝護腺癌初稿瑕疵版】，展示 AI 如何精準抓出「漏掉積極監控」、「分母混淆」與「缺乏價值觀量表」。</li>
+              <li><strong>35-50m (智慧重構)：</strong> 一鍵生成黃金標準版 PDA，解說 Bio-Psycho-Social 全人價值觀評估與 Three Talk 提問單。</li>
+              <li><strong>50-60m (學員演練)：</strong> 學員貼入自備草案，進行即時診斷與修訂成果匯出。</li>
+            </ul>
+          </div>
+
+          <!-- 下午場教案 -->
+          <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs leading-relaxed">
+            <div class="flex items-center justify-between font-bold text-indigo-800">
+              <span class="text-sm">🌇 下午場 (13:00~14:00) 從腳本到動畫：Video PDA 實務練習</span>
+              <span class="badge badge-info">60 分鐘</span>
+            </div>
+            <p><strong>教學核心：</strong> 將靜態文字 PDA 升級為病患易懂、具同理心之 5 幕式短影音腳本，串接 AI 影音生成工作流。</p>
+            <ul class="list-disc pl-4 space-y-1 text-slate-700">
+              <li><strong>00-15m (視聽人因)：</strong> 多媒體認知負荷、同理心敘事（5 幕式架構：情境->選項->利弊機率->價值澄清->對話賦能）。</li>
+              <li><strong>15-35m (腳本生成)：</strong> 展示如何由 PDA 自動轉出 5 幕分鏡、AI 繪圖 Prompts、口語旁白與字卡。</li>
+              <li><strong>35-50m (多媒體預覽)：</strong> 使用互動影院演示 Web Speech TTS 旁白試聽與動態 100 人矩陣圖變色效果。</li>
+              <li><strong>50-60m (AI 工具串接)：</strong> 介紹 Runway Gen-3、Kling、Sora、HeyGen 虛擬醫師等生成技巧。</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- 右側：學員 Prompt 錦囊實戰手冊 (5 欄) -->
+        <div class="lg:col-span-5 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+          <div class="border-b border-slate-100 pb-3">
+            <span class="badge badge-success text-xs font-bold mb-1">學員可複製帶走</span>
+            <h2 class="text-lg font-extrabold text-slate-900">專家級 Prompt 模板錦囊</h2>
+            <p class="text-xs text-slate-500">可在 ChatGPT、Gemini 或 Claude 直接貼入使用</p>
+          </div>
+
+          <!-- Prompt 1: IPDAS 檢核 -->
+          <div class="p-4 bg-teal-50 rounded-xl border border-teal-200 space-y-2 text-xs">
+            <div class="flex items-center justify-between font-bold text-teal-900">
+              <span>📋 1. IPDAS 品質檢核 Prompt</span>
+              <button onclick="App.copyText(AIService.buildAuditPrompt('[在此貼上您的 PDA 草案]'))" class="text-teal-700 hover:text-teal-900 font-bold">複製 Prompt</button>
+            </div>
+            <p class="text-teal-800 text-2xs">設定 AI 為國際 IPDAS 評審專家，嚴格診斷 26 項指標、遺漏值與人因偏誤。</p>
+          </div>
+
+          <!-- Prompt 2: PDA 重構 -->
+          <div class="p-4 bg-indigo-50 rounded-xl border border-indigo-200 space-y-2 text-xs">
+            <div class="flex items-center justify-between font-bold text-indigo-900">
+              <span>✨ 2. PDA 5 步驟重構 Prompt</span>
+              <button onclick="App.copyText(AIService.buildOptimizerPrompt('[在此貼上您的 PDA 草案]', {}))" class="text-indigo-700 hover:text-indigo-900 font-bold">複製 Prompt</button>
+            </div>
+            <p class="text-indigo-800 text-2xs">強制重構為 5 步驟 SDM 格式（含每100人分母、雙向框架與全人價值量表）。</p>
+          </div>
+
+          <!-- Prompt 3: Video PDA 腳本 -->
+          <div class="p-4 bg-purple-50 rounded-xl border border-purple-200 space-y-2 text-xs">
+            <div class="flex items-center justify-between font-bold text-purple-900">
+              <span>🎬 3. Video PDA 5 幕分鏡 Prompt</span>
+              <button onclick="App.copyText('請將以下 PDA 轉換為 5 幕式 Video PDA 短影音分鏡腳本，包含：1.同理開場 2.選項介紹 3.利弊與每百人數據 4.價值觀天平 5.提問賦能收尾。每幕需提供視覺描述、AI繪圖Prompt、口語旁白與字卡。')" class="text-purple-700 hover:text-purple-900 font-bold">複製 Prompt</button>
+            </div>
+            <p class="text-purple-800 text-2xs">將靜態 PDA 自動編導為 3~4 分鐘短影音分鏡與 AI 影音提示詞。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================== -->
+  <!-- API Key 設定彈窗 (API Modal) -->
+  <!-- ========================================== -->
+  <div id="api-modal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 border border-slate-200 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="font-bold text-base text-slate-900 flex items-center gap-2">
+          <span>⚙️</span> AI 引擎與 API 設定
+        </h3>
+        <button onclick="document.getElementById('api-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <p class="text-slate-600">
+          本系統內建<strong>「高品質本機人因規則引擎」</strong>，即使<strong>無 API Key 亦能 100% 離線穩定運行展示</strong>！
+        </p>
+        
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Google Gemini API Key (可選)：</label>
+          <input id="input-gemini-key" type="password" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 font-mono" placeholder="AIzaSy...">
+        </div>
+
+        <div class="p-3 bg-teal-50 rounded-xl border border-teal-200 text-teal-800">
+          <strong>💡 演講現場備援保證：</strong> 若未輸入 Key，系統將自動啟動內建臨床知識庫與離線智慧模組，保證演講現場零卡頓。
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+        <button onclick="document.getElementById('api-modal').classList.add('hidden')" class="btn-secondary px-3.5 py-2 rounded-lg text-xs font-semibold">
+          關閉
+        </button>
+        <button id="btn-save-apikey" onclick="document.getElementById('api-modal').classList.add('hidden')" class="btn-primary px-4 py-2 rounded-lg text-xs font-bold">
+          儲存設定
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 全域 Toast 提示 -->
+  <div id="app-toast" class="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl text-xs font-medium transition-all duration-300 transform opacity-0 translate-y-4 pointer-events-none flex items-center gap-2 border border-slate-700">
+    提示訊息
+  </div>
+
+  <!-- 全域 Loading Modal -->
+  <div id="loading-modal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 shadow-2xl max-w-sm w-full text-center space-y-3 border border-slate-100">
+      <div class="w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+      <h4 class="font-bold text-base text-slate-900">AI 智慧分析中</h4>
+      <p id="loading-msg" class="text-xs text-slate-500 leading-relaxed">正在逐項比對 IPDAS 26 項指標與人因工程原則...</p>
+    </div>
+  </div>
+
+  <!-- 系統腳本加載 -->
+  <script src="js/ipdas_rules.js"></script>
+  <script src="js/presets.js"></script>
+  <script src="js/parser_engine.js"></script>
+  <script src="js/audit_engine.js"></script>
+  <script src="js/optimizer_engine.js"></script>
+  <script src="js/script_engine.js"></script>
+  <script src="js/media_player.js"></script>
+  <script src="js/ai_service.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
