@@ -1,0 +1,4534 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IPDAS Master & Video PDA Studio - 醫病共享決策生成實作與動畫工作坊</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            teal: {
+              50: '#f0fdfa', 100: '#ccfbf1', 200: '#99f6e4', 300: '#5eead4',
+              400: '#2dd4bf', 500: '#14b8a6', 600: '#0d9488', 700: '#0f766e',
+              800: '#115e59', 900: '#134e4a', 950: '#042f2e'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+@charset "UTF-8";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+TC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root {
+  --font-main: 'Inter', 'Noto Sans TC', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --color-primary: #0d9488;
+  --color-primary-dark: #0f766e;
+  --color-primary-light: #ccfbf1;
+  --color-accent: #6366f1;
+  
+  --bg-app: #f8fafc;
+  --bg-surface: #ffffff;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+}
+
+body {
+  font-family: var(--font-main);
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 導航分頁樣式 */
+.nav-tab-btn {
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border-bottom: 2px solid transparent;
+}
+
+.nav-tab-btn:hover {
+  color: var(--color-primary);
+  background-color: rgba(13, 148, 136, 0.05);
+}
+
+.nav-tab-active {
+  color: var(--color-primary) !important;
+  font-weight: 700;
+  border-bottom-color: var(--color-primary) !important;
+  background-color: rgba(13, 148, 136, 0.08);
+}
+
+/* 按鈕風格 */
+.btn-primary {
+  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25);
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+  box-shadow: 0 6px 16px rgba(13, 148, 136, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-secondary {
+  background-color: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background-color: #e2e8f0;
+  color: #0f172a;
+}
+
+/* 徽章樣式 */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.badge-primary { background-color: #ccfbf1; color: #0f766e; }
+.badge-success { background-color: #dcfce7; color: #15803d; }
+.badge-warning { background-color: #fef3c7; color: #b45309; }
+.badge-danger { background-color: #fee2e2; color: #b91c1c; }
+.badge-info { background-color: #e0e7ff; color: #4338ca; }
+
+/* 影院與分鏡動態元件 */
+.theatre-screen {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 520px;
+  background: #090d16;
+  border-radius: 1.25rem;
+  overflow: hidden;
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scene-frame {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background-size: cover;
+  background-position: center;
+}
+
+.scene-empathy {
+  background: radial-gradient(circle at 50% 30%, #134e4a 0%, #042f2e 60%, #021a19 100%);
+}
+
+.scene-options {
+  background: radial-gradient(circle at 50% 50%, #1e293b 0%, #0f172a 100%);
+}
+
+.scene-probabilities {
+  background: radial-gradient(circle at 50% 50%, #0c4a6e 0%, #082f49 100%);
+}
+
+.scene-values {
+  background: radial-gradient(circle at 50% 50%, #312e81 0%, #1e1b4b 100%);
+}
+
+.scene-action {
+  background: radial-gradient(circle at 50% 50%, #064e3b 0%, #022c22 100%);
+}
+
+.doctor-avatar-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  margin-bottom: 1.25rem;
+}
+
+.avatar-circle {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 9999px;
+  background: #0d9488;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+.pulse-ring {
+  box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.7);
+  animation: pulse-ring-anim 2s infinite;
+}
+
+@keyframes pulse-ring-anim {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(20, 184, 166, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(20, 184, 166, 0); }
+}
+
+/* 100人矩陣圖 Icon Array */
+.icon-person {
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+  user-select: none;
+}
+
+.icon-person:hover {
+  transform: scale(1.4);
+}
+
+.icon-alive {
+  color: #34d399;
+  filter: drop-shadow(0 0 3px rgba(52, 211, 153, 0.6));
+}
+
+.icon-loss {
+  color: #f87171;
+  filter: drop-shadow(0 0 3px rgba(248, 113, 113, 0.6));
+}
+
+/* 平衡天平動畫 */
+.scale-balance-graphic {
+  position: relative;
+  width: 240px;
+  height: 90px;
+  margin: 0 auto;
+}
+
+.scale-beam {
+  position: absolute;
+  top: 25px;
+  left: 20px;
+  right: 20px;
+  height: 6px;
+  background: #cbd5e1;
+  border-radius: 3px;
+  transform-origin: center center;
+  animation: scale-sway 4s ease-in-out infinite;
+}
+
+.scale-fulcrum {
+  position: absolute;
+  top: 25px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-bottom: 24px solid #94a3b8;
+}
+
+.scale-pan {
+  position: absolute;
+  top: 28px;
+  width: 70px;
+}
+
+.scale-pan-left { left: 0px; }
+.scale-pan-right { right: 0px; }
+
+.pan-card {
+  background: rgba(255, 255, 255, 0.95);
+  padding: 0.4rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+  color: #1e293b;
+}
+
+@keyframes scale-sway {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(3deg); }
+  75% { transform: rotate(-3deg); }
+}
+
+/* 時間軸控制按鈕 */
+.timeline-dot {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+  transition: all 0.2s ease;
+}
+
+.timeline-dot:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.timeline-dot-active {
+  background: #0d9488 !important;
+  color: #ffffff !important;
+  border-color: #0d9488 !important;
+  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.4);
+}
+
+.dot-num {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+}
+
+.timeline-dot-active .dot-num {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* 選項卡片 */
+.opt-card {
+  background: #ffffff;
+  padding: 1rem;
+  border-radius: 1rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  text-align: center;
+  transition: transform 0.2s ease;
+}
+
+.opt-card:hover {
+  transform: translateY(-2px);
+}
+
+.opt-icon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+/* 動畫效果 */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* 列印樣式 (針對醫療級 PDF 匯出) */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  header, nav, #tab-input, #tab-audit, #tab-player, #tab-cheatsheet, .no-print, button, .nav-tab-btn, #app-toast, #loading-modal {
+    display: none !important;
+  }
+
+  #tab-optimize {
+    display: block !important;
+  }
+
+  .pda-section {
+    page-break-inside: avoid;
+    margin-bottom: 1.5rem !important;
+  }
+
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+  }
+
+  th, td {
+    border: 1px solid #333 !important;
+    padding: 6px 10px !important;
+    color: #000 !important;
+  }
+}
+
+</style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col antialiased selection:bg-teal-500 selection:text-white">
+
+  <!-- 頂部導航列 (Top Navigation Header) -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <!-- Logo & Title -->
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-700 to-teal-500 flex items-center justify-center text-white shadow-md shadow-teal-500/20 font-black text-xl">
+            ⚕️
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="font-extrabold text-base sm:text-lg text-slate-900 tracking-tight">IPDAS Master & Video PDA Studio</h1>
+              <span class="badge badge-primary hidden sm:inline-flex">彰濱秀傳演練版</span>
+            </div>
+            <p class="text-2xs sm:text-xs text-slate-500">2026 醫病共享決策核心教師培訓研討會・中國附醫教學部 林頴逸 副管理師</p>
+          </div>
+        </div>
+
+        <!-- Action Tools -->
+        <div class="flex items-center gap-2">
+          <!-- API 設定按鈕 -->
+          <button onclick="document.getElementById('api-modal').classList.toggle('hidden')" class="btn-secondary px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5" title="設定 Gemini API Key">
+            <span>⚙️</span>
+            <span class="hidden md:inline">AI 引擎設定</span>
+          </button>
+
+          <!-- 匯出演練資料 JSON -->
+          <button onclick="App.exportSessionJSON()" class="btn-secondary px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5" title="匯出本場演練資料 JSON">
+            <span>💾</span>
+            <span class="hidden md:inline">匯出資料</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 頁籤導航欄 (Tab Navigation Bar) -->
+    <div class="bg-slate-50 border-t border-slate-200 px-4 sm:px-6 lg:px-8">
+      <div class="max-w-7xl mx-auto flex space-x-1 sm:space-x-4 overflow-x-auto py-1 scrollbar-none">
+        <button class="nav-tab-btn nav-tab-active px-3 py-2 text-xs sm:text-sm font-medium rounded-lg flex items-center gap-1.5 whitespace-nowrap" data-tab="tab-input">
+          <span>📝</span> 1. 案例輸入與收集
+        </button>
+        <button class="nav-tab-btn px-3 py-2 text-xs sm:text-sm font-medium rounded-lg flex items-center gap-1.5 whitespace-nowrap" data-tab="tab-audit">
+          <span>📊</span> 2. IPDAS 智慧判讀報告
+        </button>
+        <button class="nav-tab-btn px-3 py-2 text-xs sm:text-sm font-medium rounded-lg flex items-center gap-1.5 whitespace-nowrap" data-tab="tab-optimize">
+          <span>✨</span> 3. AI 重構 PDA 檢視與匯出
+        </button>
+        <button class="nav-tab-btn px-3 py-2 text-xs sm:text-sm font-medium rounded-lg flex items-center gap-1.5 whitespace-nowrap" data-tab="tab-script">
+          <span>🎬</span> 4. Video PDA 分鏡腳本
+        </button>
+        <button class="nav-tab-btn px-3 py-2 text-xs sm:text-sm font-medium rounded-lg flex items-center gap-1.5 whitespace-nowrap" data-tab="tab-player">
+          <span>📽️</span> 5. 互動影院與語音試聽
+        </button>
+        <button class="nav-tab-btn px-3 py-2 text-xs sm:text-sm font-medium rounded-lg flex items-center gap-1.5 whitespace-nowrap" data-tab="tab-cheatsheet">
+          <span>📚</span> 6. 課程教案與 Prompt 錦囊
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主內容區 (Main Content Area) -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+
+    <!-- ========================================== -->
+    <!-- TAB 1: 案例輸入與資料收集 (Case Input) -->
+    <!-- ========================================== -->
+    <section id="tab-input" class="tab-pane">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- 左側輸入編輯區 (8 欄) -->
+        <div class="lg:col-span-8 space-y-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
+              <div>
+                <h2 class="font-bold text-lg text-slate-900 flex items-center gap-2">
+                  <span>📝</span> 輸入臨床 PDA 草案或決策情境
+                </h2>
+                <p class="text-xs text-slate-500">可貼上各單位自行設計之 PDA 文字，或選擇內建演練範例</p>
+              </div>
+
+              <!-- 預設案例選單 -->
+              <div class="flex items-center gap-2">
+                <label class="text-xs font-bold text-slate-600">載入案例：</label>
+                <select id="preset-case-select" class="text-xs bg-slate-50 border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-teal-500 font-medium">
+                  <!-- 由 JS 動態注入 -->
+                </select>
+              </div>
+            </div>
+
+            <!-- 臨床情境基本欄位 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">疾病狀況 / 臨床決策主題：</label>
+                <input id="input-disease-name" type="text" class="w-full text-xs p-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500" placeholder="例如：侷限性早期攝護腺癌 (第 I-II 期)">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">目標適用對象與族群：</label>
+                <input id="input-target-audience" type="text" class="w-full text-xs p-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500" placeholder="例如：65歲以上成年男性，新確診低度惡性病友">
+              </div>
+            </div>
+
+            <!-- 草案大文字區 -->
+            <div>
+              <div class="flex justify-between items-center mb-1">
+                <label class="block text-xs font-bold text-slate-700">PDA 草案內容全文 (包含選項、優缺點、機率、說明等)：</label>
+                <span class="text-2xs text-slate-400">支援純文字與 Markdown</span>
+              </div>
+              <textarea id="raw-pda-input" rows="14" class="w-full text-xs p-3.5 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 font-mono leading-relaxed" placeholder="請在此貼上臨床決策輔助工具草案..."></textarea>
+            </div>
+
+            <!-- 啟動按鈕列 -->
+            <div class="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+              <div class="text-xs text-slate-500 flex items-center gap-1.5">
+                <span>💡</span> 系統將自動進行 26 項指標判讀、遺漏值偵測與人因優化
+              </div>
+              <div class="flex gap-2">
+                <button onclick="App.runAudit()" class="btn-primary px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2">
+                  <span>🚀</span> 開始 IPDAS 智慧品質檢核與重構
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 右側輔助說明與指引 (4 欄) -->
+        <div class="lg:col-span-4 space-y-4">
+          <!-- 上午場實作指引卡 -->
+          <div class="bg-gradient-to-br from-teal-900 to-slate-900 p-5 rounded-2xl text-white shadow-md">
+            <span class="badge bg-teal-500/30 text-teal-200 border border-teal-400/30 text-2xs mb-2">11:00~12:00 實作重點</span>
+            <h3 class="font-bold text-base text-white mb-2">掌握科技：PDA 生成與檢核</h3>
+            <ul class="text-xs text-teal-100 space-y-2 leading-relaxed">
+              <li class="flex items-start gap-1.5">
+                <span class="text-teal-400 font-bold">1.</span>
+                <span><strong>審視完整性：</strong> 檢查是否漏掉國際指引標準的『積極監控/不處置』選項。</span>
+              </li>
+              <li class="flex items-start gap-1.5">
+                <span class="text-teal-400 font-bold">2.</span>
+                <span><strong>人因統一分母：</strong> 杜絕混用 % 與分數，一律採用「每 100 人」標準基準。</span>
+              </li>
+              <li class="flex items-start gap-1.5">
+                <span class="text-teal-400 font-bold">3.</span>
+                <span><strong>雙向平衡框架：</strong> 同時呈現正面存活率與負面風險，避免單向偏誤。</span>
+              </li>
+              <li class="flex items-start gap-1.5">
+                <span class="text-teal-400 font-bold">4.</span>
+                <span><strong>全人價值觀：</strong> 設計 1~5 分量表，引導病患梳理生活重心。</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- IPDAS 26 項七大維度速覽 -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+            <h4 class="font-bold text-sm text-slate-900 mb-3 flex items-center gap-2">
+              <span>📋</span> IPDAS 檢核表七大核心維度
+            </h4>
+            <div class="space-y-2 text-xs">
+              <div class="p-2 bg-slate-50 rounded-lg flex justify-between items-center">
+                <span class="text-slate-700">1. 信息的提供</span>
+                <span class="badge badge-primary">8 項指標</span>
+              </div>
+              <div class="p-2 bg-slate-50 rounded-lg flex justify-between items-center">
+                <span class="text-slate-700">2. 呈現結果的可能性</span>
+                <span class="badge badge-primary">9 項指標</span>
+              </div>
+              <div class="p-2 bg-slate-50 rounded-lg flex justify-between items-center">
+                <span class="text-slate-700">3. 澄清與表達價值觀</span>
+                <span class="badge badge-primary">3 項指標</span>
+              </div>
+              <div class="p-2 bg-slate-50 rounded-lg flex justify-between items-center">
+                <span class="text-slate-700">4. 平衡方式呈現信息</span>
+                <span class="badge badge-primary">2 項指標</span>
+              </div>
+              <div class="p-2 bg-slate-50 rounded-lg flex justify-between items-center">
+                <span class="text-slate-700">5. 引用最新科學證據</span>
+                <span class="badge badge-primary">3 項指標</span>
+              </div>
+              <div class="p-2 bg-slate-50 rounded-lg flex justify-between items-center">
+                <span class="text-slate-700">6. 披露利益衝突</span>
+                <span class="badge badge-primary">2 項指標</span>
+              </div>
+              <div class="p-2 bg-slate-50 rounded-lg flex justify-between items-center">
+                <span class="text-slate-700">7. 使用通俗語言 (易讀性)</span>
+                <span class="badge badge-primary">2 項指標</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- TAB 2: IPDAS 智慧判讀報告 (Audit Report) -->
+    <!-- ========================================== -->
+    <section id="tab-audit" class="tab-pane hidden space-y-6">
+      
+      <!-- 總分與等級儀表板 (Top KPI Cards) -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <!-- 總體評分 -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">IPDAS 綜合評分</p>
+            <div class="flex items-baseline gap-1 mt-1">
+              <span id="audit-overall-score" class="text-3xl font-black text-teal-600">--</span>
+              <span class="text-xs text-slate-400 font-bold">/ 100 分</span>
+            </div>
+            <p id="audit-grade-title" class="text-xs text-slate-600 mt-1 font-medium">請先執行檢核</p>
+          </div>
+          <div>
+            <span id="audit-grade-badge" class="badge badge-warning text-sm">--</span>
+          </div>
+        </div>
+
+        <!-- 26項通過率 -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+          <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">指標通過率</p>
+          <div class="mt-1">
+            <span id="audit-pass-rate" class="text-2xl font-black text-slate-900">--</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">涵蓋內容與發展過程 26 項</p>
+        </div>
+
+        <!-- 易讀性檢測 -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+          <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">語言易讀性評估</p>
+          <div class="mt-1">
+            <span id="audit-readability-score" class="text-2xl font-black text-indigo-600">--</span>
+          </div>
+          <p id="audit-readability-level" class="text-xs text-slate-600 mt-1 font-medium">--</p>
+        </div>
+
+        <!-- 人因警示數 -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+          <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">人因工程與偏誤警示</p>
+          <div class="mt-1">
+            <span id="audit-warnings-count" class="text-2xl font-black text-rose-600">--</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">分母混淆 / 框架效應 / 遺漏項</p>
+        </div>
+      </div>
+
+      <!-- 維度長條圖與改善處方 (Middle Row) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- 七大維度分析 (5 欄) -->
+        <div class="lg:col-span-5 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+          <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+            <span>📊</span> IPDAS 七大維度合規分布
+          </h3>
+          <div id="audit-categories-bars">
+            <!-- 由 JS 渲染 -->
+          </div>
+        </div>
+
+        <!-- 人因偏差警示與處方 (7 欄) -->
+        <div class="lg:col-span-7 space-y-4">
+          <!-- 警示清單 -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+            <h3 class="font-bold text-sm text-slate-900 mb-3 flex items-center gap-2">
+              <span>⚠️</span> 認知人因偏誤診斷 (Cognitive Biases)
+            </h3>
+            <div id="audit-warnings-container">
+              <!-- 由 JS 渲染 -->
+            </div>
+          </div>
+
+          <!-- 具體改進處方 -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+                <span>💊</span> 臨床教師具體改進處方 (Actionable Prescriptions)
+              </h3>
+              <button onclick="App.switchTab('tab-optimize')" class="btn-primary px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1">
+                <span>✨</span> 一鍵查看 AI 重構成果
+              </button>
+            </div>
+            <div id="audit-recommendations-list" class="max-h-96 overflow-y-auto pr-1">
+              <!-- 由 JS 渲染 -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 26 項完整檢核表 (Bottom Table) -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
+          <div>
+            <h3 class="font-bold text-base text-slate-900 flex items-center gap-2">
+              <span>📋</span> IPDAS 26 項指標逐項檢核明細 (彰濱秀傳演練版)
+            </h3>
+            <p class="text-xs text-slate-500">依據各指標比對結果與人因工程設計指引</p>
+          </div>
+
+          <!-- 篩選器 -->
+          <div class="flex items-center gap-1.5">
+            <button onclick="App.setChecklistFilter('all')" data-filter="all" class="checklist-filter-btn btn-primary px-3 py-1 rounded-lg text-xs font-bold">全部 (26)</button>
+            <button onclick="App.setChecklistFilter('missing')" data-filter="missing" class="checklist-filter-btn btn-secondary px-3 py-1 rounded-lg text-xs font-bold">僅看遺漏/未達標</button>
+            <button onclick="App.setChecklistFilter('passed')" data-filter="passed" class="checklist-filter-btn btn-secondary px-3 py-1 rounded-lg text-xs font-bold">已通過項目</button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+              <tr>
+                <th class="py-2.5 px-3 w-12">#</th>
+                <th class="py-2.5 px-3 w-64">檢核指標與維度</th>
+                <th class="py-2.5 px-3 w-36">判定結果</th>
+                <th class="py-2.5 px-3">臨床診斷理由與人因建議</th>
+              </tr>
+            </thead>
+            <tbody id="audit-checklist-tbody">
+              <!-- 由 JS 渲染 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- TAB 3: AI 重構 PDA 檢視與匯出 (Optimized PDA) -->
+    <!-- ========================================== -->
+    <section id="tab-optimize" class="tab-pane hidden space-y-6">
+      
+      <!-- 頂部操作與亮點 -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span id="opt-pda-badge" class="badge badge-success text-xs font-bold">IPDAS 黃金標準版</span>
+            <h2 id="opt-pda-title" class="text-base sm:text-lg font-extrabold text-slate-900">決策輔助工具標準重構版</h2>
+          </div>
+          <p class="text-xs text-slate-500">已補足遺漏值、統一每100人分母、注入雙向框架與全人價值觀量表</p>
+        </div>
+
+        <!-- 匯出按鈕群 -->
+        <div class="flex flex-wrap items-center gap-2 no-print">
+          <button onclick="App.printPDA()" class="btn-primary px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5">
+            <span>🖨️</span> 列印 / 匯出醫療 PDF
+          </button>
+          <button onclick="App.exportMarkdown()" class="btn-secondary px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5">
+            <span>📄</span> 匯出 Markdown
+          </button>
+          <button onclick="App.switchTab('tab-script')" class="btn-primary px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700">
+            <span>🎬</span> 轉為 Video PDA 腳本
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- 左側：修改回饋說明 (4 欄) -->
+        <div class="lg:col-span-4 space-y-4 no-print">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+            <h3 class="font-bold text-sm text-slate-900 mb-3 flex items-center gap-2">
+              <span>💡</span> AI 重構亮點與臨床回饋 (Changelog)
+            </h3>
+            <div id="opt-changelog-list">
+              <!-- 由 JS 渲染 -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 右側：完整 5 步驟 SDM PDA 成果展示 (8 欄) -->
+        <div class="lg:col-span-8 bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-xs">
+          <div id="opt-pda-content">
+            <!-- 由 JS 渲染 -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- TAB 4: Video PDA 分鏡腳本工作室 (Script Studio) -->
+    <!-- ========================================== -->
+    <section id="tab-script" class="tab-pane hidden space-y-6">
+      
+      <!-- 頂部資訊卡 -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <span class="badge badge-info text-2xs mb-1">13:00~14:00 實務練習</span>
+          <h2 id="script-studio-title" class="text-base sm:text-lg font-extrabold text-slate-900">5 幕式 Video PDA 動畫腳本工作室</h2>
+          <p id="script-studio-duration" class="text-xs text-slate-500 mt-0.5">預估影片長度：3 分 30 秒・符合認知負荷雙重編碼理論</p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="App.exportScriptText()" class="btn-secondary px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5">
+            <span>💾</span> 匯出完整腳本與 Prompt
+          </button>
+          <button onclick="App.switchTab('tab-player')" class="btn-primary px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5">
+            <span>📽️</span> 進入動態影院預覽
+          </button>
+        </div>
+      </div>
+
+      <!-- 5 幕分鏡清單 -->
+      <div id="script-scenes-container">
+        <!-- 由 JS 渲染 -->
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- TAB 5: 多媒體影院與語音合成 (Theatre Player) -->
+    <!-- ========================================== -->
+    <section id="tab-player" class="tab-pane hidden space-y-6">
+      
+      <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+        
+        <!-- 頂部控制條 -->
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="font-black text-lg text-slate-900">Video PDA 互動影院演示</h2>
+              <span id="theatre-act-badge" class="badge badge-primary text-xs font-bold">第 1 幕</span>
+              <span id="theatre-timing-badge" class="badge badge-secondary text-2xs">00:00 - 00:30</span>
+            </div>
+            <p class="text-xs text-slate-500 mt-0.5">結合 Web Speech API 語音合成、動態 100 人矩陣圖與人因視覺引導</p>
+          </div>
+
+          <!-- 播放控制鍵 -->
+          <div class="flex items-center gap-2">
+            <button onclick="MediaPlayer.prevScene()" class="btn-secondary px-3 py-1.5 rounded-lg text-xs font-bold" title="上一幕">
+              ⏮️ 上一幕
+            </button>
+            <button id="theatre-btn-play" onclick="MediaPlayer.playAll()" class="btn-primary px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1">
+              <span>▶️</span> 自動連播
+            </button>
+            <button onclick="MediaPlayer.stop()" class="btn-secondary px-3 py-1.5 rounded-lg text-xs font-bold" title="停止">
+              ⏹️ 停止
+            </button>
+            <button onclick="MediaPlayer.nextScene()" class="btn-secondary px-3 py-1.5 rounded-lg text-xs font-bold" title="下一幕">
+              ⏭️ 下一幕
+            </button>
+
+            <!-- 語速切換 -->
+            <select onchange="MediaPlayer.setSpeed(this.value)" class="text-xs bg-slate-50 border border-slate-300 rounded-lg p-1.5 font-bold">
+              <option value="0.85">0.85x 沉穩</option>
+              <option value="1.0" selected>1.0x 標準</option>
+              <option value="1.2">1.2x 快速</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 影院主畫布 (16:9 Screen) -->
+        <div class="theatre-screen">
+          <div id="theatre-canvas" class="w-full h-full flex items-center justify-center">
+            <!-- 由 MediaPlayer 動態注入視覺 -->
+          </div>
+        </div>
+
+        <!-- 字幕與語音同步欄 (Subtitles Bar) -->
+        <div class="p-4 bg-slate-900 text-white rounded-xl border border-slate-800 shadow-inner flex items-start gap-3">
+          <div class="w-8 h-8 rounded-full bg-teal-500/20 text-teal-400 flex items-center justify-center text-base shrink-0 border border-teal-500/30">
+            🎙️
+          </div>
+          <div class="flex-1">
+            <span class="text-2xs font-bold text-teal-400 uppercase tracking-wider block mb-0.5">旁白配音同步字幕</span>
+            <p id="theatre-subtitles" class="text-sm font-medium text-slate-100 leading-relaxed">
+              點擊「自動連播」或「試聽」開始播放語音旁白與分鏡動畫...
+            </p>
+          </div>
+        </div>
+
+        <!-- 幕次切換時間軸 (Timeline Dots) -->
+        <div class="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+          <div id="theatre-timeline-dots" class="flex flex-wrap items-center gap-2">
+            <!-- 由 MediaPlayer 渲染 -->
+          </div>
+
+          <div id="theatre-hf-tip" class="text-xs text-teal-800 bg-teal-50 px-3 py-1.5 rounded-lg border border-teal-200">
+            <strong>人因視聽指引：</strong> 雙重編碼理論——畫面與聲音同步跳動
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- TAB 6: 課程教案與 Prompt 錦囊 (Workshop Guide) -->
+    <!-- ========================================== -->
+    <section id="tab-cheatsheet" class="tab-pane hidden space-y-6">
+      
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- 左側：研討會 9/11 演講教案指引 (7 欄) -->
+        <div class="lg:col-span-7 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+          <div class="border-b border-slate-100 pb-3">
+            <span class="badge badge-primary text-xs font-bold mb-1">講師專用教案</span>
+            <h2 class="text-lg font-extrabold text-slate-900">2026/09/11 兩場實務演講操作指引</h2>
+            <p class="text-xs text-slate-500">主講人：中國醫藥大學附設醫院教學部 林頴逸 副管理師</p>
+          </div>
+
+          <!-- 上午場教案 -->
+          <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs leading-relaxed">
+            <div class="flex items-center justify-between font-bold text-teal-800">
+              <span class="text-sm">🌅 上午場 (11:00~12:00) 決策輔助工具生成實作與品質檢核</span>
+              <span class="badge badge-primary">60 分鐘</span>
+            </div>
+            <p><strong>教學核心：</strong> 引導臨床教師突破「傳統衛教宣導」思維，學會運用 IPDAS 26 項國際標準與人因工程原則重構 PDA。</p>
+            <ul class="list-disc pl-4 space-y-1 text-slate-700">
+              <li><strong>00-15m (觀念破題)：</strong> 介紹 IPDAS 26 項指標、人因分母一致性（每100人基準）與雙向平衡框架。</li>
+              <li><strong>15-35m (抓漏實戰)：</strong> 現場載入【早期攝護腺癌初稿瑕疵版】，展示 AI 如何精準抓出「漏掉積極監控」、「分母混淆」與「缺乏價值觀量表」。</li>
+              <li><strong>35-50m (智慧重構)：</strong> 一鍵生成黃金標準版 PDA，解說 Bio-Psycho-Social 全人價值觀評估與 Three Talk 提問單。</li>
+              <li><strong>50-60m (學員演練)：</strong> 學員貼入自備草案，進行即時診斷與修訂成果匯出。</li>
+            </ul>
+          </div>
+
+          <!-- 下午場教案 -->
+          <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs leading-relaxed">
+            <div class="flex items-center justify-between font-bold text-indigo-800">
+              <span class="text-sm">🌇 下午場 (13:00~14:00) 從腳本到動畫：Video PDA 實務練習</span>
+              <span class="badge badge-info">60 分鐘</span>
+            </div>
+            <p><strong>教學核心：</strong> 將靜態文字 PDA 升級為病患易懂、具同理心之 5 幕式短影音腳本，串接 AI 影音生成工作流。</p>
+            <ul class="list-disc pl-4 space-y-1 text-slate-700">
+              <li><strong>00-15m (視聽人因)：</strong> 多媒體認知負荷、同理心敘事（5 幕式架構：情境->選項->利弊機率->價值澄清->對話賦能）。</li>
+              <li><strong>15-35m (腳本生成)：</strong> 展示如何由 PDA 自動轉出 5 幕分鏡、AI 繪圖 Prompts、口語旁白與字卡。</li>
+              <li><strong>35-50m (多媒體預覽)：</strong> 使用互動影院演示 Web Speech TTS 旁白試聽與動態 100 人矩陣圖變色效果。</li>
+              <li><strong>50-60m (AI 工具串接)：</strong> 介紹 Runway Gen-3、Kling、Sora、HeyGen 虛擬醫師等生成技巧。</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- 右側：學員 Prompt 錦囊實戰手冊 (5 欄) -->
+        <div class="lg:col-span-5 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+          <div class="border-b border-slate-100 pb-3">
+            <span class="badge badge-success text-xs font-bold mb-1">學員可複製帶走</span>
+            <h2 class="text-lg font-extrabold text-slate-900">專家級 Prompt 模板錦囊</h2>
+            <p class="text-xs text-slate-500">可在 ChatGPT、Gemini 或 Claude 直接貼入使用</p>
+          </div>
+
+          <!-- Prompt 1: IPDAS 檢核 -->
+          <div class="p-4 bg-teal-50 rounded-xl border border-teal-200 space-y-2 text-xs">
+            <div class="flex items-center justify-between font-bold text-teal-900">
+              <span>📋 1. IPDAS 品質檢核 Prompt</span>
+              <button onclick="App.copyText(AIService.buildAuditPrompt('[在此貼上您的 PDA 草案]'))" class="text-teal-700 hover:text-teal-900 font-bold">複製 Prompt</button>
+            </div>
+            <p class="text-teal-800 text-2xs">設定 AI 為國際 IPDAS 評審專家，嚴格診斷 26 項指標、遺漏值與人因偏誤。</p>
+          </div>
+
+          <!-- Prompt 2: PDA 重構 -->
+          <div class="p-4 bg-indigo-50 rounded-xl border border-indigo-200 space-y-2 text-xs">
+            <div class="flex items-center justify-between font-bold text-indigo-900">
+              <span>✨ 2. PDA 5 步驟重構 Prompt</span>
+              <button onclick="App.copyText(AIService.buildOptimizerPrompt('[在此貼上您的 PDA 草案]', {}))" class="text-indigo-700 hover:text-indigo-900 font-bold">複製 Prompt</button>
+            </div>
+            <p class="text-indigo-800 text-2xs">強制重構為 5 步驟 SDM 格式（含每100人分母、雙向框架與全人價值量表）。</p>
+          </div>
+
+          <!-- Prompt 3: Video PDA 腳本 -->
+          <div class="p-4 bg-purple-50 rounded-xl border border-purple-200 space-y-2 text-xs">
+            <div class="flex items-center justify-between font-bold text-purple-900">
+              <span>🎬 3. Video PDA 5 幕分鏡 Prompt</span>
+              <button onclick="App.copyText('請將以下 PDA 轉換為 5 幕式 Video PDA 短影音分鏡腳本，包含：1.同理開場 2.選項介紹 3.利弊與每百人數據 4.價值觀天平 5.提問賦能收尾。每幕需提供視覺描述、AI繪圖Prompt、口語旁白與字卡。')" class="text-purple-700 hover:text-purple-900 font-bold">複製 Prompt</button>
+            </div>
+            <p class="text-purple-800 text-2xs">將靜態 PDA 自動編導為 3~4 分鐘短影音分鏡與 AI 影音提示詞。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================== -->
+  <!-- API Key 設定彈窗 (API Modal) -->
+  <!-- ========================================== -->
+  <div id="api-modal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 border border-slate-200 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="font-bold text-base text-slate-900 flex items-center gap-2">
+          <span>⚙️</span> AI 引擎與 API 設定
+        </h3>
+        <button onclick="document.getElementById('api-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <p class="text-slate-600">
+          本系統內建<strong>「高品質本機人因規則引擎」</strong>，即使<strong>無 API Key 亦能 100% 離線穩定運行展示</strong>！
+        </p>
+        
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Google Gemini API Key (可選)：</label>
+          <input id="input-gemini-key" type="password" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 font-mono" placeholder="AIzaSy...">
+        </div>
+
+        <div class="p-3 bg-teal-50 rounded-xl border border-teal-200 text-teal-800">
+          <strong>💡 演講現場備援保證：</strong> 若未輸入 Key，系統將自動啟動內建臨床知識庫與離線智慧模組，保證演講現場零卡頓。
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+        <button onclick="document.getElementById('api-modal').classList.add('hidden')" class="btn-secondary px-3.5 py-2 rounded-lg text-xs font-semibold">
+          關閉
+        </button>
+        <button id="btn-save-apikey" onclick="document.getElementById('api-modal').classList.add('hidden')" class="btn-primary px-4 py-2 rounded-lg text-xs font-bold">
+          儲存設定
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 全域 Toast 提示 -->
+  <div id="app-toast" class="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl text-xs font-medium transition-all duration-300 transform opacity-0 translate-y-4 pointer-events-none flex items-center gap-2 border border-slate-700">
+    提示訊息
+  </div>
+
+  <!-- 全域 Loading Modal -->
+  <div id="loading-modal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 shadow-2xl max-w-sm w-full text-center space-y-3 border border-slate-100">
+      <div class="w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+      <h4 class="font-bold text-base text-slate-900">AI 智慧分析中</h4>
+      <p id="loading-msg" class="text-xs text-slate-500 leading-relaxed">正在逐項比對 IPDAS 26 項指標與人因工程原則...</p>
+    </div>
+  </div>
+
+  <script>
+
+/* ==========================================
+ * FILE: js/ipdas_rules.js
+ * ========================================== */
+/**
+ * IPDAS (International Patient Decision Aid Standards) 26項檢核表標準定義
+ * 依據「彰濱秀傳演練版」與國際 IPDAS Collaboration 規範編製
+ */
+
+const IPDAS_CATEGORIES = [
+  {
+    id: "info",
+    dimension: "content",
+    dimensionName: "I. 內容 (Content)",
+    name: "1. 信息的提供 (Providing Information)",
+    description: "提供疾病、處置選項、自然病程與各選項利弊之完整資訊",
+    weight: 25,
+    items: [
+      {
+        id: "info_disease",
+        label: "相關疾病或狀況的介紹",
+        description: "清楚介紹病人所面臨的健康狀況、臨床分期或需做決策的具體情境。",
+        humanFactorsTip: "使用病患第一視角或生活化語言，避免開頭即充斥生硬醫學病理名詞。",
+        required: true,
+        keywords: ["疾病", "診斷", "症狀", "成因", "狀況", "檢查發現", "適用對象", "期別"]
+      },
+      {
+        id: "info_options",
+        label: "合宜的選項",
+        description: "列出目前臨床實證上可供選擇之合理治療或處置方案（至少兩種或以上）。",
+        humanFactorsTip: "並列選項數量建議 2~4 個，避免選項過多造成選擇過載 (Choice Overload)。",
+        required: true,
+        keywords: ["選項", "治療方案", "處置", "手術", "藥物", "放療", "追蹤", "觀察"]
+      },
+      {
+        id: "info_no_treatment",
+        label: "不作處置的選項（如適用）",
+        description: "說明如果暫不立即積極治療（如：積極監控、觀察等待、保守治療）是否為合理選項。",
+        humanFactorsTip: "明確告知『不處置/觀察』也是一種醫療策略，消除病患『不做處置就是放棄』的焦慮。",
+        required: true,
+        keywords: ["不做處置", "不治療", "積極監控", "觀察等待", "保守治療", "暫不處置", "維持現狀"]
+      },
+      {
+        id: "info_natural_course",
+        label: "不接受選項的自然病程",
+        description: "清楚描述若不採取介入處置時，疾病本身的可能演變歷程與預後。",
+        humanFactorsTip: "以客觀時間軸呈現自然進程，避免使用恐嚇性或過度樂觀字眼。",
+        required: true,
+        keywords: ["自然病程", "未治療後續", "演變", "惡化風險", "未處理", "預後", "病情發展"]
+      },
+      {
+        id: "info_procedures",
+        label: "各選項涉及的程序",
+        description: "說明每個選項具體實施方式、治療頻率、住院天數、麻醉方式或追蹤流程。",
+        humanFactorsTip: "使用步驟圖或日常作息視角，讓病人具體想像治療過程對生活常軌的影響。",
+        required: true,
+        keywords: ["程序", "流程", "如何進行", "住院", "麻醉", "療程", "次數", "恢復期", "回診"]
+      },
+      {
+        id: "info_benefits",
+        label: "選項的優點 [好處]",
+        description: "說明各選項能帶來的臨床效益、症狀改善、存活率或生活品質優勢。",
+        humanFactorsTip: "好處需有實證支持，避免使用『保證』、『完全無虞』等絕對化宣傳詞。",
+        required: true,
+        keywords: ["優點", "好處", "效益", "改善", "緩解", "成功率", "保留", "優勢"]
+      },
+      {
+        id: "info_harms",
+        label: "選項的缺點 [危害/副作用/缺點]",
+        description: "誠實披露各選項之潛在副作用、併發症、風險、費用或不便之處。",
+        humanFactorsTip: "缺點需與優點平行對等呈現，不得故意隱匿或以極小字體邊緣化。",
+        required: true,
+        keywords: ["缺點", "副作用", "風險", "併發症", "危害", "後遺症", "自費", "不適"]
+      },
+      {
+        id: "info_probabilities",
+        label: "發生正面及負面效果的機率",
+        description: "提供好處與風險發生的具體統計機率數字（如：百分比或每百人發生人數）。",
+        humanFactorsTip: "機率不可只寫『少見』或『常見』，必須給予具體量化基準。",
+        required: true,
+        keywords: ["機率", "%", "百分比", "發生率", "每100人", "每1000人", "比率", "統計"]
+      }
+    ]
+  },
+  {
+    id: "prob",
+    dimension: "content",
+    dimensionName: "I. 內容 (Content)",
+    name: "2. 呈現結果的可能性 (Presenting Probabilities)",
+    description: "遵循認知人因工程原則，科學、客觀且無偏誤地呈現數據機率",
+    weight: 25,
+    items: [
+      {
+        id: "prob_target_population",
+        label: "事件的發生率針對特定族群和時段",
+        description: "指明統計數據所適用的特定年齡、性別、期別與時間跨度（如：5年存活率、術後30天併發症）。",
+        humanFactorsTip: "明確標記時間範圍（如：『追蹤 5 年後』），減少時間認知落差。",
+        required: true,
+        keywords: ["特定族群", "時間", "年", "月", "追蹤期", "期別", "年齡", "族群"]
+      },
+      {
+        id: "prob_consistent_denominator",
+        label: "比較結果概率是使用相同的分母、時段、比例",
+        description: "不同選項之間的效益與風險比較，必須使用一致的分母（例如一律用每 100 人中幾人）。",
+        humanFactorsTip: "【核心人因原則】絕不可一邊寫 1/20、另一邊寫 15%，統一使用相同分母（如 100 人）降低大腦換算負擔。",
+        required: true,
+        keywords: ["相同分母", "每100人", "一致比例", "基準一致", "比較基礎"]
+      },
+      {
+        id: "prob_uncertainty",
+        label: "描述概率的不確定性",
+        description: "坦誠說明醫學數據存在統計不確定性或個人體質差異，無法 100% 精確預測單一個體。",
+        humanFactorsTip: "以開放同理語氣說明：『統計數據代表群體平均，每位病人的實際反應仍有差異』。",
+        required: false,
+        keywords: ["不確定性", "個人差異", "區間", "可能變異", "因人而異", "體質"]
+      },
+      {
+        id: "prob_visual_aids",
+        label: "使用視覺圖表",
+        description: "運用象形圖 (Icon Arrays / 100人矩陣圖)、橫條圖或視覺化圖卡輔助數據理解。",
+        humanFactorsTip: "100 人矩陣圖（Icon Array）是國際公認最佳的醫療風險傳達工具，能大幅消除數字恐懼。",
+        required: true,
+        keywords: ["視覺圖表", "100人圖", "矩陣圖", "長條圖", "圖卡", "icon array", "可視化"]
+      },
+      {
+        id: "prob_multi_modal",
+        label: "使用多種方法呈現概率 [文字、數字、圖表]",
+        description: "同時提供文字敘述、量化數字與視覺圖表，滿足不同認知風格的病人。",
+        humanFactorsTip: "符合多重編碼理論 (Dual Coding Theory)，文字+數字+圖表三位一體呈現。",
+        required: true,
+        keywords: ["多種方法", "文字與數字", "圖文對照", "圖表並列"]
+      },
+      {
+        id: "prob_user_choice",
+        label: "病人可選擇了解概率的方式 [文字，數字，圖表]",
+        description: "介面或手冊提供彈性，讓病人可依偏好切換看文字簡介或詳細統計圖表。",
+        humanFactorsTip: "設計可展開/切換之互動分層（Progressive Disclosure），不強迫排斥數字者閱讀複雜公式。",
+        required: false,
+        keywords: ["選擇了解", "切換模式", "自選呈現", "點擊展開", "詳細數據"]
+      },
+      {
+        id: "prob_personalized",
+        label: "病人可查看符合自己情況的概率 [例如年齡]",
+        description: "說明不同年齡層、共病史或風險分層下的專屬數據差異。",
+        humanFactorsTip: "分組對照（如：65歲以上 vs 65歲以下），讓病人更有帶入感。",
+        required: false,
+        keywords: ["符合自己", "年齡分層", "風險分類", "個人化", "依條件"]
+      },
+      {
+        id: "prob_context",
+        label: "概率符合其他事件的背景（如適用）",
+        description: "將醫療風險與日常常見基準事件做適度背景對比（如日常交通事故或一般麻醉風險）。",
+        humanFactorsTip: "提供錨定參考點 (Anchor Reference)，但切勿以輕佻對比淡化嚴重醫療危害。",
+        required: false,
+        keywords: ["事件背景", "背景比率", "一般族群", "參考基準"]
+      },
+      {
+        id: "prob_balanced_framing",
+        label: "使用正面和負面框架 [例如：同時呈現存活率和死亡率]",
+        description: "避免單一框架引導。例如：呈現『80% 患者術後未復發』的同時，亦標註『20% 患者可能復發』。",
+        humanFactorsTip: "【核心人因原則】消除框架效應 (Framing Bias)，確保病人獲得最中立的情緒感受。",
+        required: true,
+        keywords: ["正面和負面框架", "同時呈現", "存活與死亡", "成功與失敗", "有效與無效", "雙向框架"]
+      }
+    ]
+  },
+  {
+    id: "val",
+    dimension: "content",
+    dimensionName: "I. 內容 (Content)",
+    name: "3. 澄清和表達病人價值觀的方法 (Clarifying Values)",
+    description: "引導病人釐清個人核心價值觀、生活目標與最在意的考量因素",
+    weight: 15,
+    items: [
+      {
+        id: "val_imagine_impact",
+        label: "描述程序和結果以幫助病人用想像來體會其在身體、心理和社會的影響",
+        description: "從全人生活層面（日常自理、工作、性功能、外觀、社交生活、家人照護）引導想像。",
+        humanFactorsTip: "全人照護（Bio-Psycho-Social Model）核心：跳脫單純生理指標，進入病人的日常生活情境。",
+        required: true,
+        keywords: ["體會影響", "生活品質", "工作", "家庭", "心理感受", "日常自理", "社交", "身體心靈"]
+      },
+      {
+        id: "val_tradeoff_priorities",
+        label: "讓病人考慮哪些優點和缺點是她/他最在意的",
+        description: "提供價值觀澄清量表（如 1~5 分重要度評分或天平兩端衡量），協助病患梳理偏好。",
+        humanFactorsTip: "量表化或滑桿設計能具象化抽象心態，幫助病人將『在意的價值』具體化。",
+        required: true,
+        keywords: ["最在意", "價值觀量表", "重要度", "考量因素", "您在乎的是", "優先考量"]
+      },
+      {
+        id: "val_sharing_guidance",
+        label: "建議病人用哪些方法來與他人分享什麼是她/他最在意的",
+        description: "提供『我想問醫師的 3 個問題』清單或與家人溝通的準備筆記引導。",
+        humanFactorsTip: "落實 SDM Three Talk Model (Team Talk, Option Talk, Decision Talk)，賦能病人發問。",
+        required: true,
+        keywords: ["與他人分享", "討論清單", "提問單", "與醫師溝通", "與家人討論", "準備問題"]
+      }
+    ]
+  },
+  {
+    id: "bal",
+    dimension: "process",
+    dimensionName: "II. 發展過程 (Development Process)",
+    name: "4. 以平衡的方式呈現信息 (Balanced Presentation)",
+    description: "確保各選項呈現具有平等的字體、順序、版面權重與中立立場",
+    weight: 15,
+    items: [
+      {
+        id: "bal_compare_pros_cons",
+        label: "能比較選項的優點和缺點",
+        description: "以並列式表格或對稱結構，讓各選項的優劣點能直接進行橫向對照。",
+        humanFactorsTip: "使用並列對照表 (Side-by-side comparison matrix)，消除翻頁或上下滾動帶來的記憶疲勞。",
+        required: true,
+        keywords: ["比較", "對照表", "並列", "同時檢視", "優缺點比較"]
+      },
+      {
+        id: "bal_equal_prominence",
+        label: "呈現優點和缺點的細節 [字體、順序、統計顯示] 相同",
+        description: "不使用特別鮮豔或巨大字體突顯特定選項，各選項篇幅與詳細程度保持均衡。",
+        humanFactorsTip: "視覺權重一致（避免將醫院推薦項目放大加粗、其他項目縮小灰階）。",
+        required: true,
+        keywords: ["相同細節", "字體一致", "版面平衡", "篇幅相當", "無誘導排版"]
+      }
+    ]
+  },
+  {
+    id: "evi",
+    dimension: "process",
+    dimensionName: "II. 發展過程 (Development Process)",
+    name: "5. 引用最新的科學證據 (Evidence Base)",
+    description: "揭示實證醫學文獻出處、證據等級與病人族群適配度",
+    weight: 10,
+    items: [
+      {
+        id: "evi_references",
+        label: "所用證據的參考資料",
+        description: "列出臨床指引 (Guidelines)、系統性文獻回顧或大型 RCT 研究文獻來源與年份。",
+        humanFactorsTip: "附上最新指引（如 NCCN, ADA, Cochrane），建立醫療信任基礎。",
+        required: true,
+        keywords: ["參考資料", "實證文獻", "臨床指引", "文獻出處", "guideline", "cochrane", "研究來源"]
+      },
+      {
+        id: "evi_quality",
+        label: "說明科學證據的品質 [包括缺乏證據]",
+        description: "標明證據等級（如 GRADE 系統、高品質或證據尚不足處）。",
+        humanFactorsTip: "若某種療法尚缺乏長期追蹤數據，應誠實註明『證據等級中等/不足』。",
+        required: false,
+        keywords: ["證據品質", "證據等級", "grade", "證據不足", "高品質證據", "研究限制"]
+      },
+      {
+        id: "evi_matched_population",
+        label: "採納之證據其病人族群與 PDA 的使用族群相符",
+        description: "確認研究對象與本 PDA 鎖定的目標病人（如台灣/亞洲族群、特定期別）條件一致。",
+        humanFactorsTip: "說明文獻族群特徵，避免直接套用不符條件之外國特殊族群研究。",
+        required: false,
+        keywords: ["族群相符", "適用族群", "研究對象條件", "亞洲族群", "臨床條件"]
+      }
+    ]
+  },
+  {
+    id: "coi",
+    dimension: "process",
+    dimensionName: "II. 發展過程 (Development Process)",
+    name: "6. 披露利益衝突 (Conflict of Interest)",
+    description: "公開揭示研發資金來源、利益衝突與商業中立聲明",
+    weight: 5,
+    items: [
+      {
+        id: "coi_funding",
+        label: "說明開發此 PDA 的資金來源",
+        description: "標明本 PDA 之研發經費來源（如院內教學專案、衛福部專案或非商業基金）。",
+        humanFactorsTip: "在文末清楚揭露研發單位與經費支持單位。",
+        required: true,
+        keywords: ["資金來源", "經費支持", "研發單位", "補助專案", "院內補助"]
+      },
+      {
+        id: "coi_financial_interest",
+        label: "說明病人使用此 PDA 做選擇對 PDA 製作人或其所屬機構是否有利可圖",
+        description: "聲明作者與醫療團隊無特定廠商贊助或商業自費推銷偏好，恪守中立。",
+        humanFactorsTip: "明確聲明利益衝突 (COI Disclosure)，建立醫病互信基石。",
+        required: true,
+        keywords: ["利益衝突", "商業利益", "無贊助", "利益中立", "無利益衝突", "coi"]
+      }
+    ]
+  },
+  {
+    id: "lang",
+    dimension: "process",
+    dimensionName: "II. 發展過程 (Development Process)",
+    name: "7. 使用的語言 (Language / Plain Language)",
+    description: "落實通俗化語言（Plain Language）與國中以下易讀性標準",
+    weight: 5,
+    items: [
+      {
+        id: "lang_understandable",
+        label: "大多數病人可以理解",
+        description: "採用病患視角的日常用詞，將生澀醫學名詞（如 PSA、HbA1c、內視鏡）以白話解釋。",
+        humanFactorsTip: "專有名詞後方加註『口語白話化解說』，避免引起醫學溝通防衛心理。",
+        required: true,
+        keywords: ["白話說明", "通俗易懂", "病患理解", "日常語言", "名詞解釋"]
+      },
+      {
+        id: "lang_grade_level",
+        label: "國中以下程度能閱讀",
+        description: "句子簡短（每句建議小於 25 字）、排版段落分明、避免艱澀古雅或堆疊長句。",
+        humanFactorsTip: "【核心人因原則】符合國中七至八年級閱讀程度 (7th-8th grade reading level)，短句+條列。",
+        required: true,
+        keywords: ["國中以下", "閱讀難度", "簡短句子", "清晰好讀", "條列化"]
+      }
+    ]
+  }
+];
+
+// 計算所有項目總數
+const ALL_IPDAS_ITEMS = IPDAS_CATEGORIES.flatMap(cat => cat.items);
+const TOTAL_IPDAS_ITEMS_COUNT = ALL_IPDAS_ITEMS.length; // 26 items
+
+// 導出供全域使用
+if (typeof window !== "undefined") {
+  window.IPDAS_CATEGORIES = IPDAS_CATEGORIES;
+  window.ALL_IPDAS_ITEMS = ALL_IPDAS_ITEMS;
+  window.TOTAL_IPDAS_ITEMS_COUNT = TOTAL_IPDAS_ITEMS_COUNT;
+}
+
+
+/* ==========================================
+ * FILE: js/presets.js
+ * ========================================== */
+/**
+ * 臨床決策輔助工具 (PDA) 預設教學案例庫
+ * 涵蓋完整度不同的案例，包含標準案例與專供現場演練「AI 抓漏與重構」的典型瑕疵案例
+ */
+
+const CLINICAL_PRESETS = [
+  {
+    id: "prostate_cancer_flawed",
+    name: "【演練示範用】早期攝護腺癌治療抉擇 (初稿瑕疵版-供示範抓漏)",
+    badge: "教學診斷專用 (瑕疵初稿)",
+    description: "典型臨床教師常寫的草案：缺少不處置選項、機率分母不一致、僅強調手術好處、缺少價值觀量表、專有名詞未白話解說。",
+    disease: "侷限性早期攝護腺癌 (第 I-II 期，PSA 6.5 ng/mL，Gleason Score 6)",
+    targetAudience: "68歲男性，無明顯泌尿道症狀，例行健康檢查發現 PSA 偏高，經切片確診為低度惡性早期攝護腺癌。",
+    rawDraft: `【早期攝護腺癌該怎麼選？】
+親愛的病友您好，您被診斷為早期攝護腺癌。目前臨床上有達文西機器手臂微創根除手術和放射線治療。
+
+1. 達文西機器手臂手術：
+這是目前最先進的手術，透過精準機械手臂切除攝護腺與儲精囊。
+優點：腫瘤清除乾淨，10年疾病無復發率高達90%以上，傷口極小、出血量低、恢復迅速。
+缺點：部分病人術後可能會有一點尿失禁或勃起功能障礙，自費約25-30萬元。
+
+2. 放射線治療 (電療)：
+利用高能量射線照射攝護腺區域，每次約10-15分鐘，共需35-40次。
+優點：不用開刀、沒有麻醉風險。
+缺點：治療時間較長，可能有放射性直腸炎（約 1/20 機率排便帶血）或膀胱發炎（15%有頻尿急尿）。
+
+請您與家人討論後決定要開刀還是電療，並儘快告訴主治醫師。`,
+    expectedIssues: [
+      "遺漏『不作處置/積極監控 (Active Surveillance)』這個國際標準選項與自然病程說明",
+      "機率分母不一致 (手術寫 90%、電療一邊寫 1/20、另一邊寫 15%)，違反人因工程原則",
+      "未採用正面與負面雙向框架 (未說明 10% 復發率與尿失禁具體發生比率)",
+      "缺乏結構化價值觀澄清量表 (僅要求病患自行與家人討論)",
+      "未說明實證醫學指引文獻來源與證據品質",
+      "未揭露利益衝突聲明 (未說明達文西自費是否涉及推銷疑慮)",
+      "缺少提問清單與醫病對話引導 (SHARE / Three Talk Model 缺失)"
+    ]
+  },
+  {
+    id: "prostate_cancer_optimized",
+    name: "【標準黃金版】早期攝護腺癌治療抉擇 (完整 IPDAS 標準)",
+    badge: "IPDAS 滿分範例",
+    description: "完全符合 IPDAS 26 項指標之標準決策輔助工具，包含三種選項（含積極監控）、統一每100人機率矩陣、雙向框架與全人價值觀量表。",
+    disease: "低至中度風險侷限性早期攝護腺癌 (T1-T2, PSA < 10, Gleason ≤ 7)",
+    targetAudience: "診斷為低至中度惡性早期攝護腺癌、預期壽命 10 年以上之成年男性。",
+    rawDraft: `【低度惡性早期攝護腺癌治療抉擇：手術、放療或積極監控？】
+
+■ 步驟一：認識我的疾病與情境
+攝護腺是位於男性膀胱下方、包圍尿道的小腺體。早期攝護腺癌通常生長極為緩慢，腫瘤侷限在攝護腺內部，未擴散至淋巴或骨骼。因為進展緩慢，目前醫學實證證實，積極治療（開刀/放療）與密切監控（暫不治療），在 10 年內的整體存活率幾乎相當（均超過 98%）。因此，選擇最符合您生活品質與心願的方案，是目前最重要的決定。
+
+■ 步驟二：我的醫療處置選項
+1. 選項 A：積極監控 (Active Surveillance，暫不立即積極治療)
+- 做法：不立即動刀或照射，每 3~6 個月定期追蹤 PSA、肛門指診，每 1~2 年視情況複檢 MRI 或切片。若病情有惡化跡象再啟動治療。
+2. 選項 B：根除性攝護腺切除手術 (達文西微創或傳統手術)
+- 做法：全身麻醉下切除整個攝護腺與儲精囊，術後需放置導尿管約 1~2 週，住院約 5~7 天。
+3. 選項 C：放射線治療 (高精準電療，可合併短期間荷爾蒙治療)
+- 做法：門診每日照射一次（每次約 15 分鐘），每週 5 天，連續進行約 7~8 週，無需開刀與住院。
+
+■ 步驟三：各選項好處、風險與機率比較（以每 100 位接受處置的病友追蹤 5 年為例）
+【10 年攝護腺癌存活率】
+- 積極監控：每 100 人中約 99 人存活 (1 人因癌症過世)
+- 切除手術：每 100 人中約 99 人存活 (1 人因癌症過世)
+- 放射治療：每 100 人中約 99 人存活 (1 人因癌症過世)
+
+【術後 1 年需長期使用尿布 (中重度尿失禁)】
+- 積極監控：每 100 人中 0 人發生 (100 人無尿失禁)
+- 切除手術：每 100 人中約 8~12 人需用尿布 (約 88~92 人無嚴重尿失禁)
+- 放射治療：每 100 人中約 1~3 人需用尿布 (約 97~99 人無嚴重尿失禁)
+
+【術後 1 年維持勃起功能 (性功能影響)】
+- 積極監控：每 100 人中約 85 人維持原狀 (隨年齡自然老化)
+- 切除手術：每 100 人中約 30~50 人維持勃起 (50~70 人有勃起障礙)
+- 放射治療：每 100 人中約 45~65 人維持勃起 (35~55 人有勃起障礙)
+
+【腸道副作用 (如直腸出血或頻繁腹瀉)】
+- 積極監控：每 100 人中 0 人發生
+- 切除手術：每 100 人中小於 1 人發生
+- 放射治療：每 100 人中約 5~8 人發生排便出血或黏膜炎
+
+■ 步驟四：我在意的價值觀評估（1 分：完全不在意 ~ 5 分：極度在意）
+[ ] 1. 我非常希望立刻把體內的腫瘤徹底切除拿掉，否則我會每天焦慮不安。(1-5分)
+[ ] 2. 我非常在乎術後能否維持正常的排尿控制，不想出門提心吊膽或包尿布。(1-5分)
+[ ] 3. 我非常在乎保留性生活與勃起功能，這對我和伴侶的親密關係非常重要。(1-5分)
+[ ] 4. 我希望能維持正常上班或日常作息，不想連續 2 個月每天到醫院報到。(1-5分)
+[ ] 5. 我願意定期每 3-6 個月回診抽血檢查，只要能避免不必要的手術副作用。(1-5分)
+
+■ 步驟五：確認我的想法與提問
+- 我目前比較傾向的方案是：[ ] 積極監控  [ ] 手術切除  [ ] 放射治療  [ ] 尚未決定
+- 我想向醫療團隊進一步討論的 3 個問題：...
+- 實證來源：依據 2024 NCCN Clinical Practice Guidelines 及 ProtecT 大型臨床隨機對照試驗 (NEJM, 2023)。
+- 利益衝突揭露：本決策輔助工具由教學部與泌尿科/放腫科團隊共同研發，無任何廠商贊助或自費推廣利益。`
+  },
+  {
+    id: "diabetes_second_line",
+    name: "【代謝臨床案例】第二型糖尿病二線降血糖用藥選擇 (SGLT2 vs GLP-1 vs DPP-4)",
+    badge: "慢性病照護 SDM",
+    description: "針對單用 Metformin 血糖仍未達標病患，探討兼顧器官保護（心血管/腎臟）、體重管理與低血糖風險之處置決策。",
+    disease: "第二型糖尿病合併過重/心血管高風險族群 (HbA1c 8.2%)",
+    targetAudience: "已規則服用第一線降血糖藥物 (Metformin)，但糖化血色素仍高於 7.0% 且伴隨體重過重之第二型糖尿病患者。",
+    rawDraft: `【我的血糖藥該怎麼加？第二型糖尿病第二線用藥決策輔助】
+
+■ 適用對象：服用第一線降血糖藥後，HbA1c 仍介於 7.5%~9.0% 且希望進一步保護心腎器官的糖友。
+■ 三種常見第二線選項：
+1. SGLT2 抑制劑 (排糖藥/口服一顆/每日一次)：
+- 機轉：由尿液排出過多糖分。
+- 優點：每 100 人平均降 HbA1c 0.8%、體重減輕 2-3 公斤、具備心衰竭與慢性腎病保護實證。
+- 缺點與風險：每 100 人約 5-8 人可能發生泌尿道或生殖器念珠菌感染（女性較常見），需每日補充足量水分。
+
+2. GLP-1 腸泌素受體促效劑 (每週一次皮下注射針劑 或 每日口服)：
+- 機轉：刺激胰島素分泌、延緩胃排空、抑制食慾。
+- 優點：每 100 人平均降 HbA1c 1.2%、體重減輕 3-5 公斤、具顯著心血管事件預防效果。
+- 缺點與風險：每 100 人約 15-20 人在前兩週有噁心、腹脹或輕微腹瀉（隨時間適應改善），部分針劑需自費或需符合健保給付規範。
+
+3. DPP-4 抑制劑 (口服一顆/每日一次)：
+- 機轉：保護體內天然腸泌素。
+- 優點：幾乎不引起低血糖、對腸胃刺激極小、體重持平、健保普遍給付。
+- 缺點與風險：降糖幅度中等 (約 0.6%)、無額外減重或心腎器官顯著保護優勢。
+
+■ 價值觀考量：
+- 我是否很害怕打針？口服 vs 針劑
+- 我是否將『減輕體重』與『保護心臟/腎臟』視為最高優先？
+- 我是否能配合每日喝水 2000c.c. 並維持良好會陰部清潔？`
+  },
+  {
+    id: "breast_cancer_surgery",
+    name: "【外科腫瘤案例】早期乳癌手術方式抉擇 (乳房保留手術 vs 全乳房切除)",
+    badge: "癌症治療決策",
+    description: "探討第 I/II 期乳癌患者在存活率相同前提下，外觀保留、放療療程、局部復發率與心理生活品質之取捨平衡。",
+    disease: "早期侵襲性乳癌 (腫瘤小於 3 公分，未廣泛侵犯皮膚或胸壁)",
+    targetAudience: "新確診第 I 或 II 期乳癌之女性病友，經評估兩種手術方式皆為可行選項者。",
+    rawDraft: `【早期乳癌手術：乳房保留手術 + 放療 vs 全乳房切除手術】
+
+■ 決策情境：
+當確診早期乳癌時，許多病友會擔心『把整個乳房拿掉是不是比較安全？』
+國際大型醫學研究證實：【乳房保留手術合併術後放射治療】與【全乳房切除手術】，兩者的『10年整體存活率』完全一樣（每 100 人中約 90-92 人存活）！兩者差別在於外觀保留程度、是否需要後續放療以及局部小復發的機率。
+
+■ 兩大手術選項比較 (以每 100 位病友追蹤 10 年為基準)：
+1. 選項 A：乳房保留手術 + 術後放射治療 (約 3-5 週)
+- 優點：保留自身乳房外觀與大部分感覺，身體心像滿意度較高 (每 100 人中約 85 人對外貌滿意)。
+- 缺點：術後必須接受 15-25 次放射治療；10年內同側乳房局部復發機率約每 100 人中 5-8 人（復發時仍可進行二次全切除手術補救）。
+
+2. 選項 B：全乳房切除手術 (可選擇是否立即重建)
+- 優點：通常不需要再做放射治療（除非淋巴轉移多）；局部復發率極低（10年內每 100 人中約 1-2 人）。
+- 缺點：失去單側乳房外觀，胸口留有長條疤痕；若要重建需自費且手術時間長。
+
+■ 價值觀天平考量：
+- 保留身體外觀完整性與女性身體意象對我有多重要？
+- 我是否能接受連續 4-6 週每天到醫院接受 15 分鐘的放射治療？
+- 我對『局部復發』的焦慮程度有多高？即使復發後存活率仍相同？`
+  }
+];
+
+if (typeof window !== "undefined") {
+  window.CLINICAL_PRESETS = CLINICAL_PRESETS;
+}
+
+
+/* ==========================================
+ * FILE: js/parser_engine.js
+ * ========================================== */
+/**
+ * 臨床輸入資料結構化解析器 (Clinical Text & Form Parser Engine)
+ * 將臨床教師輸入的非結構化文字或草案，拆解萃取出 SDM 核心要素
+ */
+
+const ParserEngine = {
+  /**
+   * 解析輸入草案或表單
+   */
+  parse(rawText, metadata = {}) {
+    const text = (rawText || "").trim();
+    if (!text) {
+      return {
+        isEmpty: true,
+        text: "",
+        title: "",
+        disease: metadata.disease || "",
+        targetAudience: metadata.targetAudience || "",
+        options: [],
+        hasNoTreatmentOption: false,
+        hasNaturalCourse: false,
+        hasProbabilities: false,
+        hasConsistentDenominator: false,
+        hasVisualAidsMention: false,
+        hasValuesClarification: false,
+        hasBalancedFraming: false,
+        hasEvidenceBase: false,
+        hasCoiDisclosure: false,
+        readability: this.calcReadability(text),
+        extractedSentences: [],
+        rawText: text
+      };
+    }
+
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const sentences = text.split(/[。！？\n]+/).map(s => s.trim()).filter(Boolean);
+
+    // 擷取標題
+    let title = lines[0] ? lines[0].replace(/^[【\[#\s]+|[】\]#\s]+$/g, "") : "病人決策輔助草案";
+    if (title.length > 50) title = title.substring(0, 50) + "...";
+
+    // 檢查處置選項 (Options)
+    const options = this.extractOptions(text, lines);
+
+    // 檢查是否有「不處置 / 積極監控 / 觀察」
+    const hasNoTreatmentOption = /(不(?:做|作|進行|採取)?處置|不治療|積極監控|觀察等待|保守治療|暫不治療|維持現狀|active surveillance|watchful waiting)/i.test(text);
+
+    // 檢查自然病程
+    const hasNaturalCourse = /(自然病程|未治療.*?(?:惡化|進展|演變|存活|預後)|不處置.*?(?:情況|風險)|若不治療)/i.test(text);
+
+    // 檢查機率數據與分母
+    const probData = this.analyzeProbabilities(text);
+
+    // 檢查價值觀澄清
+    const hasValuesClarification = /(價值觀|在意|在乎|考量|重要度|天平|偏好|量表|評分|優先順序|日常生活影響)/i.test(text);
+
+    // 檢查視覺輔助工具
+    const hasVisualAidsMention = /(圖表|100人|圖卡|矩陣圖|長條圖|圓餅圖|icon array|視覺化)/i.test(text);
+
+    // 檢查正面與負面平衡框架
+    const hasBalancedFraming = probData.hasBalancedFraming || /(同時呈現|存活.*?死亡|復發.*?無復發|有效.*?無效|滿意.*?不滿意)/i.test(text);
+
+    // 檢查實證醫學來源
+    const hasEvidenceBase = /(實證|指引|guideline|cochrane|nejm|lancet|nccn|研究顯示|臨床試驗|文獻|證據品質|grade)/i.test(text);
+
+    // 檢查利益衝突揭露
+    const hasCoiDisclosure = /(利益衝突|coi|資金來源|經費|贊助|研發單位|非商業|無利益衝突|中立聲明)/i.test(text);
+
+    // 易讀性統計
+    const readability = this.calcReadability(text);
+
+    return {
+      isEmpty: false,
+      rawText: text,
+      title,
+      disease: metadata.disease || this.extractDiseaseName(text),
+      targetAudience: metadata.targetAudience || this.extractTargetAudience(text),
+      options,
+      hasNoTreatmentOption,
+      hasNaturalCourse,
+      hasProbabilities: probData.count > 0,
+      probData,
+      hasVisualAidsMention,
+      hasValuesClarification,
+      hasBalancedFraming,
+      hasEvidenceBase,
+      hasCoiDisclosure,
+      readability,
+      sentencesCount: sentences.length,
+      extractedSentences: sentences
+    };
+  },
+
+  /**
+   * 萃取選項
+   */
+  extractOptions(text, lines) {
+    const options = [];
+    const optionHeaders = lines.filter(l => /^(?:選項|[0-9]+[.\、]|一[.\、]|二[.\、]|三[.\、]|四[.\、]|【選項|A\.|B\.|C\.)/.test(l));
+
+    if (optionHeaders.length >= 2) {
+      optionHeaders.forEach((h, idx) => {
+        const cleanName = h.replace(/^(?:選項\s*[A-Z0-9]*[：:\s]*|[0-9]+[.\、\s]*|[一二三四五]+[.\、\s]*|[【\[]|】|\]|\(.*?\))/g, "").trim();
+        options.push({
+          index: idx + 1,
+          name: cleanName || `選項 ${idx + 1}`,
+          rawHeader: h
+        });
+      });
+    } else {
+      // 關鍵字比對常見選項
+      const matches = text.match(/(?:手術|切除|放療|放射線治療|電療|化療|口服藥|針劑|SGLT2|GLP-1|DPP-4|積極監控|觀察等待|保留手術|全乳房切除)/gi) || [];
+      const uniqueMatches = [...new Set(matches)];
+      uniqueMatches.forEach((m, idx) => {
+        options.push({
+          index: idx + 1,
+          name: m,
+          rawHeader: m
+        });
+      });
+    }
+
+    // 補充基本預設如果無法提取
+    if (options.length === 0) {
+      options.push({ index: 1, name: "處置方案 A", rawHeader: "處置方案 A" });
+      options.push({ index: 2, name: "處置方案 B", rawHeader: "處置方案 B" });
+    }
+
+    return options;
+  },
+
+  /**
+   * 分析機率數字與一致性
+   */
+  analyzeProbabilities(text) {
+    const percentMatches = text.match(/\d+(?:\.\d+)?%/g) || [];
+    const fractionMatches = text.match(/\d+\/\d+/g) || [];
+    const perHundredMatches = text.match(/每\s*100\s*人(?:中約?)?\s*\d+(?:[~-]\d+)?\s*人/g) || [];
+    const perThousandMatches = text.match(/每\s*1000\s*人(?:中約?)?\s*\d+(?:[~-]\d+)?\s*人/g) || [];
+
+    const totalStatsCount = percentMatches.length + fractionMatches.length + perHundredMatches.length + perThousandMatches.length;
+
+    // 檢查是否有混用不同分母（例如一邊用 %、一邊用 1/20、一邊用每100人）
+    const usedDenominators = [];
+    if (percentMatches.length > 0) usedDenominators.push("百分比 (%)");
+    if (fractionMatches.length > 0) usedDenominators.push("分數 (如 1/20)");
+    if (perHundredMatches.length > 0) usedDenominators.push("每100人");
+    if (perThousandMatches.length > 0) usedDenominators.push("每1000人");
+
+    const isMixedDenominator = (usedDenominators.length > 1 && fractionMatches.length > 0);
+    const hasConsistentDenominator = (usedDenominators.length === 1 || perHundredMatches.length >= 2) && !isMixedDenominator;
+
+    // 檢查雙向框架
+    const hasBalancedFraming = /(存活.*?(?:死亡|過世)|無復發.*?(?:復發)|有效.*?(?:無效|失敗)|(?:[0-9]+%|[0-9]+人).*?(?:發生|無發生|未發生))/i.test(text);
+
+    return {
+      count: totalStatsCount,
+      percentMatches,
+      fractionMatches,
+      perHundredMatches,
+      perThousandMatches,
+      usedDenominators,
+      isMixedDenominator,
+      hasConsistentDenominator,
+      hasBalancedFraming
+    };
+  },
+
+  /**
+   * 萃取疾病名稱
+   */
+  extractDiseaseName(text) {
+    const match = text.match(/(?:診斷為|確診為|罹患|關於|【|針對)([\u4e00-\u9fa5A-Za-z0-9\s]{2,20}(?:癌|病|症|炎|衰竭|高血壓|糖尿病|不全|受損))/);
+    return match ? match[1].trim() : "臨床特定健康狀況";
+  },
+
+  /**
+   * 萃取適用對象
+   */
+  extractTargetAudience(text) {
+    const match = text.match(/(?:適用對象|目標對象|適合對象|適用於|病友您好[，,])([^。\n]{5,50})/);
+    return match ? match[1].trim() : "面臨此醫療處置抉擇之病患與家屬";
+  },
+
+  /**
+   * 易讀性與認知負荷計算
+   */
+  calcReadability(text) {
+    if (!text) return { score: 100, level: "國中以下 (極佳)", avgSentenceLength: 0, complexTermsCount: 0, complexTerms: [] };
+
+    const clean = text.replace(/[\s\r\n]+/g, "");
+    const totalChars = clean.length;
+    const sentences = text.split(/[。！？\n]+/).map(s => s.trim()).filter(Boolean);
+    const avgSentenceLength = sentences.length ? Math.round(totalChars / sentences.length) : 0;
+
+    // 常見生硬醫學專有名詞表（未帶白話解釋者）
+    const technicalKeywords = [
+      "PSA", "Gleason", "HbA1c", "SGLT2", "GLP-1", "DPP-4", "Metformin", "RCT", "NCCN",
+      "切片", "儲精囊", "淋巴廓清", "腸泌素", "受體促效劑", "念珠菌", "放射性直腸炎",
+      "根除性", "微創機械手臂", "身體心像", "局限性", "轉移"
+    ];
+
+    const foundComplexTerms = [];
+    technicalKeywords.forEach(kw => {
+      const regex = new RegExp(kw, "gi");
+      const count = (text.match(regex) || []).length;
+      if (count > 0) {
+        foundComplexTerms.push({ term: kw, count });
+      }
+    });
+
+    let score = 100;
+    // 句子過長扣分 (人因原則：理想句子長度 < 25 字)
+    if (avgSentenceLength > 35) score -= 25;
+    else if (avgSentenceLength > 25) score -= 15;
+    else if (avgSentenceLength > 20) score -= 5;
+
+    // 專有名詞過多扣分
+    if (foundComplexTerms.length > 5) score -= 20;
+    else if (foundComplexTerms.length > 2) score -= 10;
+
+    let level = "國中以下 (優質易讀)";
+    if (score < 65) level = "高中至大學 (偏艱澀，建議精簡與白話化)";
+    else if (score < 80) level = "國中至高中 (可讀性良好，部分專有名詞需說明)";
+
+    return {
+      score: Math.max(20, score),
+      level,
+      avgSentenceLength,
+      totalChars,
+      sentencesCount: sentences.length,
+      complexTermsCount: foundComplexTerms.length,
+      complexTerms: foundComplexTerms
+    };
+  }
+};
+
+if (typeof window !== "undefined") {
+  window.ParserEngine = ParserEngine;
+}
+
+
+/* ==========================================
+ * FILE: js/audit_engine.js
+ * ========================================== */
+/**
+ * IPDAS 智慧判讀與品質檢核核心引擎 (IPDAS Audit Engine)
+ * 依據 26 項標準與人因工程原則進行逐項判定、評分、遺漏值偵測與改進處方生成
+ */
+
+const AuditEngine = {
+  /**
+   * 執行完整 IPDAS 品質檢核
+   * @param {Object} parsedData ParserEngine 解析產物
+   * @returns {Object} 檢核報告物件
+   */
+  evaluate(parsedData) {
+    const text = parsedData.rawText || "";
+    const itemsResult = [];
+    const categoryScores = {};
+
+    let totalEarnedScore = 0;
+    let totalMaxScore = 0;
+
+    const missingItems = [];
+    const warnings = [];
+    const recommendations = [];
+
+    // 逐一分類檢驗
+    IPDAS_CATEGORIES.forEach(category => {
+      let catPassedCount = 0;
+      const catTotalCount = category.items.length;
+
+      category.items.forEach(item => {
+        const checkResult = this.checkItem(item.id, parsedData, text);
+        const itemStatus = {
+          id: item.id,
+          categoryId: category.id,
+          categoryName: category.name,
+          label: item.label,
+          description: item.description,
+          humanFactorsTip: item.humanFactorsTip,
+          required: item.required,
+          passed: checkResult.passed,
+          score: checkResult.passed ? 1 : 0,
+          confidence: checkResult.confidence,
+          reason: checkResult.reason,
+          suggestion: checkResult.suggestion
+        };
+
+        itemsResult.push(itemStatus);
+
+        if (checkResult.passed) {
+          catPassedCount += 1;
+        } else {
+          missingItems.push(itemStatus);
+          if (checkResult.suggestion) {
+            recommendations.push({
+              itemId: item.id,
+              categoryName: category.name,
+              label: item.label,
+              suggestion: checkResult.suggestion,
+              humanFactorsTip: item.humanFactorsTip,
+              severity: item.required ? "high" : "medium"
+            });
+          }
+        }
+      });
+
+      const catScorePercent = Math.round((catPassedCount / catTotalCount) * 100);
+      categoryScores[category.id] = {
+        name: category.name,
+        passedCount: catPassedCount,
+        totalCount: catTotalCount,
+        percentage: catScorePercent,
+        weight: category.weight,
+        weightedScore: Math.round(catScorePercent * (category.weight / 100))
+      };
+
+      totalEarnedScore += categoryScores[category.id].weightedScore;
+      totalMaxScore += category.weight;
+    });
+
+    const overallScore = Math.min(100, Math.round(totalEarnedScore));
+    const passedCount = itemsResult.filter(i => i.passed).length;
+
+    // 人因工程與偏差警告分析 (Cognitive Bias & UX Warnings)
+    this.detectHumanFactorsWarnings(parsedData, warnings);
+
+    // 總結等級評定
+    let grade = "C";
+    let gradeTitle = "需大幅修正 (需要大幅補足遺漏值與人因優化)";
+    let gradeBadgeClass = "badge-danger";
+
+    if (overallScore >= 90) {
+      grade = "A+";
+      gradeTitle = "黃金標準 (高度符合國際 IPDAS 與人因標準)";
+      gradeBadgeClass = "badge-success";
+    } else if (overallScore >= 80) {
+      grade = "A";
+      gradeTitle = "優良 PDA (符合大部分標準，微調後可直接推廣)";
+      gradeBadgeClass = "badge-primary";
+    } else if (overallScore >= 65) {
+      grade = "B";
+      gradeTitle = "普通草案 (具備基本框架，缺少關鍵人因與實證要素)";
+      gradeBadgeClass = "badge-warning";
+    }
+
+    return {
+      overallScore,
+      grade,
+      gradeTitle,
+      gradeBadgeClass,
+      passedCount,
+      totalCount: TOTAL_IPDAS_ITEMS_COUNT,
+      passRate: Math.round((passedCount / TOTAL_IPDAS_ITEMS_COUNT) * 100),
+      categoryScores,
+      itemsResult,
+      missingItems,
+      warnings,
+      recommendations,
+      readability: parsedData.readability,
+      evaluatedAt: new Date().toISOString()
+    };
+  },
+
+  /**
+   * 針對單一指標進行智慧檢測
+   */
+  checkItem(itemId, parsedData, text) {
+    const p = parsedData;
+
+    switch (itemId) {
+      // --- I. 內容：信息的提供 ---
+      case "info_disease":
+        if (p.disease && p.disease !== "臨床特定健康狀況" && text.length > 50) {
+          return { passed: true, confidence: 0.95, reason: `已清楚介紹病況情境：${p.disease}` };
+        }
+        return {
+          passed: false,
+          confidence: 0.8,
+          reason: "未清楚交代疾病名稱、分期或具體臨床適用對象背景。",
+          suggestion: "在開頭第一段加入【步驟一：認識我的疾病與情境】，明確說明疾病特徵與適用族群。"
+        };
+
+      case "info_options":
+        if (p.options && p.options.length >= 2) {
+          return { passed: true, confidence: 0.95, reason: `已列出 ${p.options.length} 種處置選項：${p.options.map(o => o.name).join("、")}` };
+        }
+        return {
+          passed: false,
+          confidence: 0.85,
+          reason: "處置選項少於兩種，無法進行有效之共享決策比較。",
+          suggestion: "至少列出 2~3 種符合臨床指引的合理處置選項。"
+        };
+
+      case "info_no_treatment":
+        if (p.hasNoTreatmentOption) {
+          return { passed: true, confidence: 0.9, reason: "已納入『不作處置 / 積極監控 / 觀察等待』之選項說明。" };
+        }
+        return {
+          passed: false,
+          confidence: 0.9,
+          reason: "【常見重大遺漏】未提及『不立即積極治療（如積極監控、定期觀察）』之可行性。",
+          suggestion: "增列『積極監控/觀察等待 (Active Surveillance)』作為選項之一，說明其適用條件與安全追蹤機制。"
+        };
+
+      case "info_natural_course":
+        if (p.hasNaturalCourse) {
+          return { passed: true, confidence: 0.85, reason: "已說明不治療或未處置時的自然病程與進展速度。" };
+        }
+        return {
+          passed: false,
+          confidence: 0.85,
+          reason: "未說明若病人選擇暫不治療時，疾病本身的自然演變與惡化風險。",
+          suggestion: "補充客觀的『自然病程說明』，消除病人恐懼，使其理解疾病進展速度。"
+        };
+
+      case "info_procedures":
+        if (/(麻醉|住院|天數|每日|每週|次數|切除|照射|注射|口服|流程|檢查)/i.test(text)) {
+          return { passed: true, confidence: 0.9, reason: "已包含治療步驟、頻率、天數或流程說明。" };
+        }
+        return {
+          passed: false,
+          confidence: 0.8,
+          reason: "缺乏各選項具體實施程序（如是否需住院、麻醉方式、療程總天數等）。",
+          suggestion: "為每個選項條列具體流程（如：門診次數、住院天數、恢復期長短）。"
+        };
+
+      case "info_benefits":
+        if (/(優點|好處|效益|成功率|存活|保留|改善|減輕)/i.test(text)) {
+          return { passed: true, confidence: 0.95, reason: "已列出各選項之預期效益與優點。" };
+        }
+        return {
+          passed: false,
+          confidence: 0.9,
+          reason: "未明確說明各選項帶來的好處與臨床效益。",
+          suggestion: "以條列或表格清楚呈現各選項能帶來的具體好處。"
+        };
+
+      case "info_harms":
+        if (/(缺點|副作用|風險|併發症|危害|後遺症|失禁|出血|疼痛|自費)/i.test(text)) {
+          return { passed: true, confidence: 0.95, reason: "已誠實揭露各選項之潛在副作用、風險與缺點。" };
+        }
+        return {
+          passed: false,
+          confidence: 0.9,
+          reason: "未充分披露選項的缺點、可能併發症或自費負擔。",
+          suggestion: "並列列出可能產生的副作用發生率與應對措施。"
+        };
+
+      case "info_probabilities":
+        if (p.hasProbabilities) {
+          return { passed: true, confidence: 0.9, reason: `已提供量化機率數據 (${p.probData.count} 處數據提及)。` };
+        }
+        return {
+          passed: false,
+          confidence: 0.9,
+          reason: "僅使用模糊文字（如『很少見』、『常見』），缺乏具體機率數字。",
+          suggestion: "將好處與風險以具體百分比或每 100 人發生人數進行量化標註。"
+        };
+
+      // --- I. 內容：呈現結果的可能性 ---
+      case "prob_target_population":
+        if (/(年|月|追蹤|特定|族群|年齡|期別|成人|男性|女性)/i.test(text) && p.hasProbabilities) {
+          return { passed: true, confidence: 0.85, reason: "已標註數據所屬之時間跨度（如5年/10年）或族群分層。" };
+        }
+        return {
+          passed: false,
+          confidence: 0.8,
+          reason: "機率數據未標註明確時段（例如追蹤多久？5年還是10年？）或特定族群條件。",
+          suggestion: "所有數據統一加上時間標籤（例如：『追蹤 5 年後』或『術後 1 年內』）。"
+        };
+
+      case "prob_consistent_denominator":
+        if (p.probData.hasConsistentDenominator) {
+          return { passed: true, confidence: 0.9, reason: "各選項機率比較已採用一致之基準分母（如統一每 100 人）。" };
+        }
+        return {
+          passed: false,
+          confidence: 0.95,
+          reason: "【人因重大缺失】機率分母不一致！混用了不同基準（例如一邊寫 90%、一邊寫 1/20、另一邊寫 15%），極易引發病人認知混淆。",
+          suggestion: "將所有機率數據全面轉換為相同分母基準（強烈推薦一律使用『每 100 人中有 X 人』）。"
+        };
+
+      case "prob_uncertainty":
+        if (/(因人而異|個人體質|統計平均|可能變異|不確定性|個別差異)/i.test(text)) {
+          return { passed: true, confidence: 0.85, reason: "已說明醫學數據的不確定性與個體差異。" };
+        }
+        return {
+          passed: false,
+          confidence: 0.75,
+          reason: "未說明統計機率具有不確定性，易使病人誤以為數字為絕對保證。",
+          suggestion: "加入一句溫和提示：『統計數據代表群體平均結果，每位病友的實際情況可能因體質而有所不同』。"
+        };
+
+      case "prob_visual_aids":
+        if (p.hasVisualAidsMention) {
+          return { passed: true, confidence: 0.85, reason: "已採用或提及視覺圖表（如 100 人矩陣圖、長條圖）。" };
+        }
+        return {
+          passed: false,
+          confidence: 0.85,
+          reason: "純文字堆疊數據，缺乏視覺圖表輔助（如 100 人 Icon Array 圖）。",
+          suggestion: "在機率呈現區加入 100 人矩陣圖（Icon Array）或圖形化進度條，大幅降低認知負荷。"
+        };
+
+      case "prob_multi_modal":
+        if (p.hasProbabilities && (p.hasVisualAidsMention || /(每100人.*?[0-9]+人.*?[%％])/s.test(text))) {
+          return { passed: true, confidence: 0.85, reason: "已結合文字、數字與圖表多維度呈現機率。" };
+        }
+        return {
+          passed: false,
+          confidence: 0.8,
+          reason: "缺乏多重編碼呈現（文字 + 數字 + 視覺圖表）。",
+          suggestion: "同時並列文字描述、每百人數據與圖像符號。"
+        };
+
+      case "prob_user_choice":
+        if (/(展開|切換|了解更多|詳細數據|簡易版)/i.test(text)) {
+          return { passed: true, confidence: 0.8, reason: "介面提供病人可自選了解概率之彈性。" };
+        }
+        return {
+          passed: false,
+          confidence: 0.7,
+          reason: "缺乏資訊漸進揭露（Progressive Disclosure）設計。",
+          suggestion: "在介面上設計可切換查看『簡易摘要』或『完整統計圖表』之選項按鈕。"
+        };
+
+      case "prob_personalized":
+        if (/(年齡分層|年滿|65歲|風險等級|高風險|低風險)/i.test(text)) {
+          return { passed: true, confidence: 0.8, reason: "已提供不同風險或年齡分層之個人化機率提示。" };
+        }
+        return {
+          passed: false,
+          confidence: 0.7,
+          reason: "未說明不同年齡或共病族群之機率差異。",
+          suggestion: "適度補充不同年齡或風險分級的預後差異說明。"
+        };
+
+      case "prob_context":
+        if (/(對比|相較於|一般族群|背景|日常)/i.test(text)) {
+          return { passed: true, confidence: 0.75, reason: "已提供其他日常或背景事件之基準對比。" };
+        }
+        return {
+          passed: false,
+          confidence: 0.7,
+          reason: "缺乏錨定背景參考基準。",
+          suggestion: "可適度補充一般未患病同齡族群的健康基線背景比率。"
+        };
+
+      case "prob_balanced_framing":
+        if (p.hasBalancedFraming) {
+          return { passed: true, confidence: 0.9, reason: "已使用雙向平衡框架（同時呈現正面存活/成功率與負面風險）。" };
+        }
+        return {
+          passed: false,
+          confidence: 0.95,
+          reason: "【人因偏誤】單向框架偏誤！僅單向呈現成功率（如 90% 成功），未同時標註 10% 失敗/復發風險。",
+          suggestion: "強制採用正面與負面雙重框架，例如：『每 100 人中約 90 人未復發，同時約 10 人可能復發』。"
+        };
+
+      // --- I. 內容：澄清和表達病人價值觀的方法 ---
+      case "val_imagine_impact":
+        if (/(生活品質|工作|家庭|伴侶|社交|日常自理|外觀|性生活|心理)/i.test(text)) {
+          return { passed: true, confidence: 0.9, reason: "已引導病人從身體、心理、工作與家庭全人維度想像治療影響。" };
+        }
+        return {
+          passed: false,
+          confidence: 0.85,
+          reason: "僅著重疾病生物醫學指標，缺少引導病人想像對日常生活、工作、心理及家庭的實際衝擊。",
+          suggestion: "加入【全人生活衝擊提問】：引導病人評估排尿、外觀、性生活、工作請假對生活的實質影響。"
+        };
+
+      case "val_tradeoff_priorities":
+        if (p.hasValuesClarification && /(1-5分|量表|最在意|優先考量|天平|勾選)/i.test(text)) {
+          return { passed: true, confidence: 0.9, reason: "已提供具體的價值觀澄清量表或優先順序考量題項。" };
+        }
+        return {
+          passed: false,
+          confidence: 0.9,
+          reason: "缺乏量化或結構化的『價值觀澄清量表』，病人難以具體釐清心中取捨。",
+          suggestion: "設計【步驟四：我在意的價值觀評估】（1~5分量表），讓病人具體勾選各項考量的重要程度。"
+        };
+
+      case "val_sharing_guidance":
+        if (/(向醫師提問|討論清單|我想問|與家人討論|提問單|準備問題)/i.test(text)) {
+          return { passed: true, confidence: 0.85, reason: "已提供與醫療團隊或家人溝通討論的提問引導清單。" };
+        }
+        return {
+          passed: false,
+          confidence: 0.85,
+          reason: "未提供病人與醫師對話的準備問題指引 (缺少 Three Talk Model 賦能機制)。",
+          suggestion: "在結尾設計【我想向主治醫師討論的 3 個問題】空白填寫欄與常見提問範例。"
+        };
+
+      // --- II. 發展過程：以平衡的方式呈現信息 ---
+      case "bal_compare_pros_cons":
+        if (/(比較|對照|各選項|同時檢視|優缺點)/i.test(text) && p.options.length >= 2) {
+          return { passed: true, confidence: 0.9, reason: "已具備多選項優缺點橫向對照結構。" };
+        }
+        return {
+          passed: false,
+          confidence: 0.85,
+          reason: "資訊為分散段落，缺乏整合式的並列對照表。",
+          suggestion: "採用左右並列的矩陣對照表 (Side-by-side Matrix)，降低病人翻閱記憶負擔。"
+        };
+
+      case "bal_equal_prominence":
+        if (!/(最推薦|唯一首選|一定要選|保證)/i.test(text) && p.options.length >= 2) {
+          return { passed: true, confidence: 0.85, reason: "各選項版面篇幅與文字比重保持中立均衡，無誘導傾向。" };
+        }
+        return {
+          passed: false,
+          confidence: 0.85,
+          reason: "選項呈現失衡，某個選項篇幅過大或帶有強烈主觀誘導詞（如『最先進』、『首選』）。",
+          suggestion: "移除宣傳性修飾詞，各選項採用相同格式、字級與中立客觀語調平等呈現。"
+        };
+
+      // --- II. 發展過程：引用最新的科學證據 ---
+      case "evi_references":
+        if (p.hasEvidenceBase) {
+          return { passed: true, confidence: 0.9, reason: "已列明指引或醫學文獻參考出處。" };
+        }
+        return {
+          passed: false,
+          confidence: 0.9,
+          reason: "未標註任何實證醫學指引 (Guidelines) 或臨床研究出處年份。",
+          suggestion: "文末清楚列出實證來源（例如：NCCN Guidelines 2024、Cochrane Review 2023）。"
+        };
+
+      case "evi_quality":
+        if (/(grade|證據等級|證據品質|高品質|中等品質|研究限制)/i.test(text)) {
+          return { passed: true, confidence: 0.85, reason: "已說明科學證據品質與限制。" };
+        }
+        return {
+          passed: false,
+          confidence: 0.75,
+          reason: "未說明證據品質等級或研究限制。",
+          suggestion: "適度標記證據品質等級（如 GRADE 高/中/低），並說明臨床限制。"
+        };
+
+      case "evi_matched_population":
+        if (/(族群相符|適用條件|臨床條件|亞洲族群|年齡層)/i.test(text) || p.disease) {
+          return { passed: true, confidence: 0.8, reason: "所引用之實證研究對象條件與目標族群相符。" };
+        }
+        return {
+          passed: false,
+          confidence: 0.7,
+          reason: "未說明研究對象是否完全適用於本 PDA 的目標病人族群。",
+          suggestion: "註明文獻所涵蓋之族群條件與台灣臨床病患之適用性。"
+        };
+
+      // --- II. 發展過程：披露利益衝突 ---
+      case "coi_funding":
+        if (p.hasCoiDisclosure && /(研發單位|資金|經費|補助|教學部)/i.test(text)) {
+          return { passed: true, confidence: 0.9, reason: "已揭露 PDA 開發經費與支持機構來源。" };
+        }
+        return {
+          passed: false,
+          confidence: 0.9,
+          reason: "未交代本決策輔助工具之開發資金來源與研發團隊背景。",
+          suggestion: "文末加入【資金來源揭露】：標註由院內教學部/專案計畫支持開發。"
+        };
+
+      case "coi_financial_interest":
+        if (p.hasCoiDisclosure && /(無利益衝突|中立|無廠商贊助|利益中立)/i.test(text)) {
+          return { passed: true, confidence: 0.9, reason: "已明文聲明無商業贊助與利益衝突。" };
+        }
+        return {
+          passed: false,
+          confidence: 0.9,
+          reason: "特別在涉及自費項目時，未聲明無商業利益衝突，易使病患產生推銷疑慮。",
+          suggestion: "加入【利益衝突聲明】：『本輔助工具研發團隊與相關醫療器材/藥廠無任何商業利益關係』。"
+        };
+
+      // --- II. 發展過程：使用的語言 ---
+      case "lang_understandable":
+        if (p.readability.score >= 70) {
+          return { passed: true, confidence: 0.9, reason: `語言通俗度佳 (易讀性評分：${p.readability.score}分)` };
+        }
+        return {
+          passed: false,
+          confidence: 0.85,
+          reason: `生硬專有名詞偏多 (${p.readability.complexTerms.map(t => t.term).join("、")})，病患不易快速吸收。`,
+          suggestion: "為生硬名詞加上生活化比喻或白話解釋（例如：PSA 攝護腺特異抗原 -> 攝護腺健康指標）。"
+        };
+
+      case "lang_grade_level":
+        if (p.readability.avgSentenceLength <= 28) {
+          return { passed: true, confidence: 0.9, reason: `句子簡短清晰 (平均句長 ${p.readability.avgSentenceLength} 字，符合國中以下閱讀標準)` };
+        }
+        return {
+          passed: false,
+          confidence: 0.85,
+          reason: `長句過多 (平均句長 ${p.readability.avgSentenceLength} 字)，超過國中生閱讀舒適閾值 (25字/句)。`,
+          suggestion: "拆解長句為 20~25 字以內的短句，多用列點與粗體標籤降低認知疲勞。"
+        };
+
+      default:
+        return { passed: true, confidence: 0.7, reason: "檢核通過" };
+    }
+  },
+
+  /**
+   * 偵測人因工程偏差與警示
+   */
+  detectHumanFactorsWarnings(parsedData, warnings) {
+    const p = parsedData;
+
+    // 1. 分母混淆警示
+    if (p.probData.isMixedDenominator) {
+      warnings.push({
+        type: "cognitive_bias",
+        title: "人因警示：分母混淆 (Denominator Neglect / Confusion)",
+        description: `文中同時出現了 ${p.probData.usedDenominators.join("、")} 等不同分母表示法。認知心理學研究指出，病人在大腦換算分數與百分比時極易產生嚴重認知過載與機率高估。`,
+        action: "立即將所有機率數據統一調整為『每 100 人中有 X 人』之標準分母。"
+      });
+    }
+
+    // 2. 框架效應偏差
+    if (!p.probData.hasBalancedFraming && p.probData.count > 0) {
+      warnings.push({
+        type: "framing_bias",
+        title: "人因警示：單向框架效應 (Positive/Negative Framing Bias)",
+        description: "僅使用正面框架（如『90% 成功』）會使病患過度樂觀，而僅使用負面框架（如『10% 復發』）會引發過度恐慌。",
+        action: "採用雙向平衡框架（Dual Framing），同時並列呈現正反兩面數據。"
+      });
+    }
+
+    // 3. 缺乏不處置選項警示
+    if (!p.hasNoTreatmentOption) {
+      warnings.push({
+        type: "choice_architecture",
+        title: "決策架構警示：漏失『積極監控/不處置』基準選項",
+        description: "在許多早期癌症或慢性病決策中，『積極監控/定期追蹤』是國際指引重要選項。缺乏此選項會迫使病人陷入非A即B的過度治療焦慮。",
+        action: "補上『積極監控 (Active Surveillance)』選項與疾病自然病程。"
+      });
+    }
+
+    // 4. 認知負荷過載警示 (句長與排版)
+    if (p.readability.avgSentenceLength > 30) {
+      warnings.push({
+        type: "cognitive_load",
+        title: "人因警示：文字認知負荷過高 (Cognitive Overload)",
+        description: `平均每句長度達 ${p.readability.avgSentenceLength} 字，段落缺乏視覺錨點，會導致焦慮中的病患注意力中斷。`,
+        action: "將長句拆短為 25 字以內，並運用圖卡與清單排版。"
+      });
+    }
+  }
+};
+
+if (typeof window !== "undefined") {
+  window.AuditEngine = AuditEngine;
+}
+
+
+/* ==========================================
+ * FILE: js/optimizer_engine.js
+ * ========================================== */
+/**
+ * PDA 智慧優化與重構引擎 (PDA AI Optimizer Engine)
+ * 將臨床草案依據 IPDAS 26 項黃金標準與人因工程原則重構為標準化 5 步驟 SDM 決策輔助工具
+ */
+
+const OptimizerEngine = {
+  /**
+   * 執行 PDA 智慧重構
+   * @param {Object} parsedData 解析資料
+   * @param {Object} auditReport 檢核報告
+   * @returns {Object} 優化後的結構化 PDA 與修改回饋說明
+   */
+  optimize(parsedData, auditReport) {
+    const disease = parsedData.disease || "臨床特定健康狀況";
+    const targetAudience = parsedData.targetAudience || "面臨此處置抉擇之病友與家屬";
+    const rawOptions = parsedData.options || [];
+
+    // 判斷是否為攝護腺癌、糖尿病、乳癌或一般疾病，採用專業臨床實證模板重構
+    const isProstate = /攝護腺|前列腺|PSA|Gleason/i.test(parsedData.rawText || "");
+    const isDiabetes = /糖尿病|血糖|HbA1c|SGLT2|GLP-1|胰島素/i.test(parsedData.rawText || "");
+    const isBreastCancer = /乳癌|乳房|保留手術|全乳房切除/i.test(parsedData.rawText || "");
+
+    let optimizedDoc = null;
+    let changelog = [];
+
+    if (isProstate) {
+      optimizedDoc = this.generateProstateGoldPDA();
+      changelog = this.generateProstateChangelog();
+    } else if (isDiabetes) {
+      optimizedDoc = this.generateDiabetesGoldPDA();
+      changelog = this.generateDiabetesChangelog();
+    } else if (isBreastCancer) {
+      optimizedDoc = this.generateBreastCancerGoldPDA();
+      changelog = this.generateBreastCancerChangelog();
+    } else {
+      optimizedDoc = this.generateGenericGoldPDA(parsedData, auditReport);
+      changelog = this.generateGenericChangelog(parsedData, auditReport);
+    }
+
+    return {
+      title: optimizedDoc.title,
+      structuredDoc: optimizedDoc,
+      fullMarkdownText: this.buildMarkdown(optimizedDoc),
+      changelog,
+      humanFactorsHighlights: [
+        {
+          title: "統一分母原則 (Consistent Denominator)",
+          desc: "全面轉換為『每 100 位病友中約 X 位』，消除 1/20、15%、90% 混用帶來的認知混亂。"
+        },
+        {
+          title: "雙向平衡框架 (Balanced Dual Framing)",
+          desc: "每個項目同時呈現正面存活率與負面風險，避免單向框架誘導。"
+        },
+        {
+          title: "增列『積極監控 / 觀察』基準選項",
+          desc: "補足不處置之自然病程與追蹤安全網，避免病患陷入二元焦慮。"
+        },
+        {
+          title: "全人 Bio-Psycho-Social 價值觀量表",
+          desc: "從日常排尿、性生活、外觀、工作、心理等多維度引導 1~5 分評分。"
+        },
+        {
+          title: "Three Talk Model 賦能對話清單",
+          desc: "提供『我想問醫師的 3 個問題』與臨床指引/利益衝突公開聲明。"
+        }
+      ]
+    };
+  },
+
+  /**
+   * 早期攝護腺癌黃金標準 PDA
+   */
+  generateProstateGoldPDA() {
+    return {
+      title: "【低度至中度惡性早期攝護腺癌】治療抉擇：手術、放療或積極監控？",
+      badge: "IPDAS 黃金標準版 (SDM 5 Steps)",
+      diseaseName: "侷限性早期攝護腺癌 (第 I-II 期)",
+      targetAudience: "新確診為低至中度惡性早期攝護腺癌、腫瘤侷限在攝護腺內之男性病友與家屬。",
+      step1_introduction: {
+        heading: "步驟一：認識我的疾病與情境",
+        content: `攝護腺是位於男性膀胱正下方、環繞尿道的小腺體。早期攝護腺癌通常生長非常緩慢，初期常無明顯排尿不適。
+
+■ 醫學重要實證：
+根據國際權威大型臨床研究（追蹤 10~15 年），對於早期低度惡性攝護腺癌，不論選擇【手術切除】、【放射線治療】或是【積極監控（暫不立即治療）】，整體的『10年癌症存活率』幾乎一樣高（均在 98%~99% 以上）。
+因此，目前最重要的不是比誰能活得久，而是【哪種方案最符合您的生活方式、工作安排與您最在乎的生活品質】。`,
+        naturalCourse: "【自然病程說明】：低度惡性攝護腺癌進展緩慢，定期密切追蹤下，即使暫不開刀，數年內發生遠端轉移的風險極低（小於 1%~2%）。"
+      },
+      step2_options: {
+        heading: "步驟二：我的醫療處置選項",
+        list: [
+          {
+            name: "選項 A：積極監控 (Active Surveillance，暫不立即積極治療)",
+            procedure: "不立即動刀或照射。每 3~6 個月定期抽血檢查 PSA、進行肛門指診；每 1~2 年複檢 MRI 或切片。若腫瘤有活性增加才啟動根除性治療。",
+            stay: "無須住院，門診追蹤即可",
+            anesthesia: "無麻醉風險"
+          },
+          {
+            name: "選項 B：根除性攝護腺切除手術 (達文西機器手臂微創或腹腔鏡)",
+            procedure: "在全身麻醉下，利用高精準機器手臂將整個攝護腺與儲精囊完整切除並重新縫合尿道。術後需留置導尿管約 7~14 天。",
+            stay: "需住院約 5~7 天，居家休養約 2~4 週",
+            anesthesia: "全身麻醉"
+          },
+          {
+            name: "選項 C：放射線治療 (高精準影像導引電療，可搭配短期間荷爾蒙治療)",
+            procedure: "透過體外高能量放射線精準照射攝護腺腫瘤組織。每日照射一次（每次約 10~15 分鐘），每週 5 天，連續照射約 7~8 週（約 35~40 次）。",
+            stay: "無需住院，每日門診接受照射",
+            anesthesia: "無須麻醉"
+          }
+        ]
+      },
+      step3_comparison: {
+        heading: "步驟三：好處、風險與機率比較（以每 100 位病友追蹤 5 年為基準）",
+        timeframe: "追蹤 5~10 年統計數據",
+        denominator: "每 100 位病友",
+        matrix: [
+          {
+            indicator: "10 年癌症存活率 (雙向框架)",
+            desc: "存活 vs 因癌症過世",
+            optA: "99 人存活 (1 人過世)",
+            optB: "99 人存活 (1 人過世)",
+            optC: "99 人存活 (1 人過世)",
+            iconA: 99,
+            iconB: 99,
+            iconC: 99
+          },
+          {
+            indicator: "術後/治療後長期尿失禁 (需天天穿尿布)",
+            desc: "能自主控制排尿 vs 嚴重失禁",
+            optA: "0 人失禁 (100 人正常排尿)",
+            optB: "約 8~12 人需用尿布 (88~92 人正常)",
+            optC: "約 1~3 人需用尿布 (97~99 人正常)",
+            iconA: 0,
+            iconB: 10,
+            iconC: 2
+          },
+          {
+            indicator: "維持勃起功能 (性生活滿意度)",
+            desc: "保有勃起 vs 發生勃起障礙",
+            optA: "約 85 人維持正常 (隨年齡自然變化)",
+            optB: "約 30~50 人維持 (50~70 人有障礙)",
+            optC: "約 45~65 人維持 (35~55 人有障礙)",
+            iconA: 85,
+            iconB: 40,
+            iconC: 55
+          },
+          {
+            indicator: "腸道刺激與出血 (放射性直腸炎)",
+            desc: "正常排便 vs 頻繁腹瀉或出血",
+            optA: "0 人發生",
+            optB: "小於 1 人發生",
+            optC: "約 5~8 人發生 (92~95 人無排便出血)",
+            iconA: 0,
+            iconB: 1,
+            iconC: 6
+          }
+        ]
+      },
+      step4_values: {
+        heading: "步驟四：我在意的價值觀評估（請勾選您在乎的程度：1分完全不在意 ~ 5分極度在意）",
+        questions: [
+          { q: "我非常希望體內的腫瘤能立刻切除拿掉，否則我每天會感到焦慮不安。", scale: "1 - 2 - 3 - 4 - 5" },
+          { q: "我非常在乎術後能否維持正常的排尿控制，不想出門提心吊膽或長期包尿布。", scale: "1 - 2 - 3 - 4 - 5" },
+          { q: "我非常在乎保留性生活與勃起功能，這對我和伴侶的親密關係至關重要。", scale: "1 - 2 - 3 - 4 - 5" },
+          { q: "我希望能維持正常上班或日常作息，不想連續 2 個月每天到醫院照射放療。", scale: "1 - 2 - 3 - 4 - 5" },
+          { q: "我願意定期每 3~6 個月回診抽血檢查，只要能避免不必要的手術副作用與傷口。", scale: "1 - 2 - 3 - 4 - 5" }
+        ]
+      },
+      step5_decision_talk: {
+        heading: "步驟五：確認我的想法與提問（SHARE / Three Talk 對話準備）",
+        currentLean: "我目前比較傾向的方案是：[ ] 積極監控  [ ] 手術切除  [ ] 放射線治療  [ ] 還在考慮中，需與團隊討論",
+        questionsForDoctor: [
+          "1. 依據我的 PSA 數值、切片格里森分數 (Gleason score) 與年齡，我適合採取『積極監控』嗎？",
+          "2. 如果我選擇手術或放療，以我的身體狀況，發生排尿失禁或性功能影響的機率大約是多少？",
+          "3. 如果我先選擇積極監控，未來如果指數升高，會不會錯過最佳黃金治療期？"
+        ],
+        evidenceReference: "實證出處：依據 2024 NCCN Clinical Practice Guidelines in Oncology (Prostate Cancer) 及英國 ProtecT 15年追蹤隨機對照試驗 (NEJM, 2023; 388:1547-1558)。",
+        coiStatement: "利益衝突揭露：本決策輔助工具由教學部醫病共享決策小組及臨床專科團隊共同研發，無任何廠商贊助，不涉及任何商業自費器材推廣利益。"
+      }
+    };
+  },
+
+  /**
+   * 攝護腺癌修改歷程說明
+   */
+  generateProstateChangelog() {
+    return [
+      {
+        field: "補足『積極監控』與自然病程",
+        before: "草案僅有手術與放療兩種積極治療，遺漏觀察選項。",
+        after: "增列『選項 A：積極監控』，並引用 10 年存活率相當之實證，消除病患非開刀不可的恐懼。",
+        rationale: "符合 IPDAS 國際標準與 NCCN 臨床指引，落實選擇完整性。"
+      },
+      {
+        field: "統一分母與量化機率",
+        before: "混用 90%、1/20、15% 等不同分母，病人難以橫向對比。",
+        after: "一律統一為『每 100 位病友中約 X 位』，並提供雙向框架（存活 vs 過世、正常 vs 失禁）。",
+        rationale: "人因工程（Human Factors）：消除分母忽略效應 (Denominator Neglect) 與框架偏誤。"
+      },
+      {
+        field: "加入全人生活價值觀量表",
+        before: "僅一句『請與家人討論』，缺乏結構化引導。",
+        after: "設計 5 題 1~5 分量表，涵蓋癌症焦慮、排尿控制、性功能、工作日程與回診意願。",
+        rationale: "全人照護（Bio-Psycho-Social Model）賦能病患梳理自我內在價值。"
+      },
+      {
+        field: "建立醫病提問與利益揭露",
+        before: "無文獻來源、無利益衝突說明、無提問引導。",
+        after: "列出 NEJM 2023 最新文獻、揭露無商業贊助，並提供『我想問醫師的 3 個問題』。",
+        rationale: "強化信任感，完整落實 SDM Three Talk Model 與 SHARE Approach。"
+      }
+    ];
+  },
+
+  /**
+   * 糖尿病二線用藥黃金標準 PDA
+   */
+  generateDiabetesGoldPDA() {
+    return {
+      title: "【第二型糖尿病】口服一線藥物未達標時：第二線降血糖藥物選擇決策輔助",
+      badge: "IPDAS 黃金標準版 (慢性病照護)",
+      diseaseName: "第二型糖尿病合併過重/器官保護考量 (HbA1c > 7.5%)",
+      targetAudience: "已規則服用第一線藥物 (Metformin) 但糖化血色素仍未達標之糖友與照護家屬。",
+      step1_introduction: {
+        heading: "步驟一：認識我的疾病與情境",
+        content: `第二型糖尿病是指身體無法有效利用胰島素，導致血液中葡萄糖濃度偏高。當單一口服藥物（如 Metformin）無法讓糖化血色素（HbA1c）維持在理想目標（通常為 7.0% 以下）時，加上第二種藥物能有效預防血管病變。
+現代糖尿病照護除了『降血糖』之外，更重視【保護心臟、保護腎臟、避免低血糖與體重管理】的全人生活考量。`,
+        naturalCourse: "【自然病程說明】：若長期血糖未受控制，每 100 人中約有 20~30 人在數年後會出現視網膜病變、蛋白尿或心血管疾病風險。"
+      },
+      step2_options: {
+        heading: "步驟二：我的醫療處置選項",
+        list: [
+          {
+            name: "選項 A：SGLT2 抑制劑 (排糖藥/每日口服一顆)",
+            procedure: "每天口服一次。機轉為透過尿液排出多餘糖分。需每日補充至少 2000c.c. 水分並維持良好衛生習慣。",
+            stay: "門診處方，居家服藥",
+            anesthesia: "無"
+          },
+          {
+            name: "選項 B：GLP-1 腸泌素受體促效劑 (每週一次皮下注射 或 每日口服)",
+            procedure: "以極細針頭每週自行注射一次（或每日空腹口服）。機轉為刺激胰島素分泌、延緩胃排空並抑制食慾。",
+            stay: "門診衛教注射技巧，居家使用",
+            anesthesia: "無"
+          },
+          {
+            name: "選項 C：DPP-4 抑制劑 (每日口服一顆)",
+            procedure: "每天口服一次。機轉為抑制體內酵素以保護天然腸泌素。藥性溫和穩定。",
+            stay: "門診處方，居家服藥",
+            anesthesia: "無"
+          }
+        ]
+      },
+      step3_comparison: {
+        heading: "步驟三：好處、風險與機率比較（以每 100 位病友追蹤 1 年為基準）",
+        timeframe: "追蹤 1~3 年臨床實證",
+        denominator: "每 100 位病友",
+        matrix: [
+          {
+            indicator: "糖化血色素 (HbA1c) 降幅",
+            desc: "平均降低幅度",
+            optA: "平均降約 0.8% (良好降糖)",
+            optB: "平均降約 1.2% (強力降糖)",
+            optC: "平均降約 0.6% (溫和降糖)",
+            iconA: 80,
+            iconB: 95,
+            iconC: 60
+          },
+          {
+            indicator: "體重減輕效果 (減輕 2~5 公斤)",
+            desc: "體重下降 vs 持平/增加",
+            optA: "約 70 人體重減輕 2~3 kg",
+            optB: "約 85 人體重減輕 3~5 kg",
+            optC: "約 10 人減輕 (90 人體重持平)",
+            iconA: 70,
+            iconB: 85,
+            iconC: 10
+          },
+          {
+            indicator: "心臟衰竭與慢性腎病保護實證",
+            desc: "具顯著器官保護效益",
+            optA: "具高度器官保護實證 (首選)",
+            optB: "具顯著心血管保護實證 (首選)",
+            optC: "器官保護效果中立 (無額外保護)",
+            iconA: 90,
+            iconB: 90,
+            iconC: 30
+          },
+          {
+            indicator: "主要副作用發生率",
+            desc: "常見不適症狀",
+            optA: "約 5~8 人有泌尿道/念珠菌感染",
+            optB: "約 15~20 人前兩週有噁心胃脹",
+            optC: "小於 2 人有輕微不適 (耐受度最高)",
+            iconA: 6,
+            iconB: 18,
+            iconC: 2
+          }
+        ]
+      },
+      step4_values: {
+        heading: "步驟四：我在意的價值觀評估（1分完全不在意 ~ 5分極度在意）",
+        questions: [
+          { q: "我希望能透過藥物同時達到減重與縮小腰圍的效果。", scale: "1 - 2 - 3 - 4 - 5" },
+          { q: "我有心血管疾病或腎臟病家族史，非常希望藥物具備器官保護功效。", scale: "1 - 2 - 3 - 4 - 5" },
+          { q: "我非常害怕打針或自行注射，希望以口服藥物為第一優先。", scale: "1 - 2 - 3 - 4 - 5" },
+          { q: "我願意配合每天多喝水與維持衛生，不擔心輕微泌尿道感染風險。", scale: "1 - 2 - 3 - 4 - 5" },
+          { q: "我希望藥物副作用越少越好，容易腸胃不適的我希望以溫和為主。", scale: "1 - 2 - 3 - 4 - 5" }
+        ]
+      },
+      step5_decision_talk: {
+        heading: "步驟五：確認我的想法與提問（SHARE 對話準備）",
+        currentLean: "我目前比較傾向的方案是：[ ] SGLT2 排糖藥  [ ] GLP-1 針劑/口服  [ ] DPP-4 溫和口服  [ ] 尚未決定",
+        questionsForDoctor: [
+          "1. 依據我目前的腎功能 (eGFR) 與心血管狀況，我最適合哪一種第二線藥物？",
+          "2. 如果我選擇 GLP-1 或 SGLT2，目前的健保給付規定為何？是否需要自費？",
+          "3. 我如果開始使用新藥物，大約需要多久回診追蹤抽血看血糖與腎功能？"
+        ],
+        evidenceReference: "實證出處：2024 ADA (美國糖尿病學會) Standards of Care in Diabetes 及台灣糖尿病臨床照護指引。",
+        coiStatement: "利益衝突揭露：本教材由教學部與新陳代謝科團隊共同編製，無任何藥廠贊助，恪守客觀公正中立原則。"
+      }
+    };
+  },
+
+  generateDiabetesChangelog() {
+    return [
+      {
+        field: "全人照護與器官保護維度重構",
+        before: "傳統草案僅比較降血糖數字，忽略器官保護與減重考量。",
+        after: "將心血管、腎臟保護、體重減輕與副作用發生率標準化並列。",
+        rationale: "接軌最新 ADA 國際指引，促進生活型態與全人健康平衡。"
+      },
+      {
+        field: "副作用發生率每百人量化",
+        before: "僅提及可能感染或噁心，未標明具體發生人數。",
+        after: "清楚標明 SGLT2 (5~8/100人感染)、GLP-1 (15~20/100人初期待適應噁心)。",
+        rationale: "消除病患因未知副作用產生的抗拒心理。"
+      }
+    ];
+  },
+
+  /**
+   * 早期乳癌手術黃金標準 PDA
+   */
+  generateBreastCancerGoldPDA() {
+    return {
+      title: "【早期乳癌】手術抉擇：乳房保留手術合併放療 vs 全乳房切除手術",
+      badge: "IPDAS 黃金標準版 (腫瘤外科)",
+      diseaseName: "早期侵襲性乳癌 (第 I-II 期，腫瘤小於 3 公分)",
+      targetAudience: "新確診第 I 或 II 期乳癌之女性病友，經外科醫師評估兩種手術方式皆為可行選項者。",
+      step1_introduction: {
+        heading: "步驟一：認識我的疾病與情境",
+        content: `確診早期乳癌時，許多病友第一反應常問：『把整個乳房切掉會不會比較安全、活得比較久？』
+■ 國際權威實證確認：
+超過 20 年的跨國大型隨機對照醫學研究證實，【乳房保留手術合併術後放療】與【全乳房切除手術】，兩者的『10年整體存活率完全相同』（每 100 人中約 90~92 人長期健康存活）。
+兩者的真正差異在於：【自身乳房外觀與身體意象的保留】 vs 【是否需要接受每日放療療程】及【局部復發的機率微差】。`,
+        naturalCourse: "【自然病程說明】：早期乳癌若積極接受標準手術與輔助治療，治癒率極高，10年無遠端轉移率達 90% 以上。"
+      },
+      step2_options: {
+        heading: "步驟二：我的醫療處置選項",
+        list: [
+          {
+            name: "選項 A：乳房保留手術 + 術後放射線治療 (約 3~5 週)",
+            procedure: "僅切除腫瘤及其周邊少許正常組織，保留大部分原本乳房。傷口癒合後，需接受門診放療（每週 5 天，每次 15 分鐘，共約 15~25 次）。",
+            stay: "住院約 2~3 天",
+            anesthesia: "全身麻醉"
+          },
+          {
+            name: "選項 B：全乳房切除手術 (可選擇是否立即自費重建)",
+            procedure: "全身麻醉下將單側全部乳房組織及乳頭乳暈切除，胸部留有一道平坦疤痕。通常術後無需再做放療（除非淋巴轉移較多）。",
+            stay: "住院約 3~5 天 (若合併自費重建則住院 5~7 天)",
+            anesthesia: "全身麻醉"
+          }
+        ]
+      },
+      step3_comparison: {
+        heading: "步驟三：好處、風險與機率比較（以每 100 位病友追蹤 10 年為基準）",
+        timeframe: "追蹤 10 年臨床統計",
+        denominator: "每 100 位病友",
+        matrix: [
+          {
+            indicator: "10 年整體癌症存活率 (雙向框架)",
+            desc: "長期健康存活 vs 因癌症過世",
+            optA: "約 90~92 人存活 (8~10 人過世)",
+            optB: "約 90~92 人存活 (8~10 人過世)",
+            iconA: 91,
+            iconB: 91
+          },
+          {
+            indicator: "10 年同側乳房局部小復發率",
+            desc: "局部未復發 vs 局部復發(可再手術補救)",
+            optA: "約 92~95 人未復發 (5~8 人局部復發)",
+            optB: "約 98~99 人未復發 (1~2 人局部復發)",
+            iconA: 7,
+            iconB: 2
+          },
+          {
+            indicator: "身體外觀滿意度 (身體心像 Body Image)",
+            desc: "對自身體態與穿衣感覺滿意",
+            optA: "約 85 人高度滿意 (保留原貌與大部分感覺)",
+            optB: "約 40~60 人滿意 (單側平坦疤痕，可穿義乳)",
+            iconA: 85,
+            iconB: 50
+          },
+          {
+            indicator: "放射線治療需求與不便",
+            desc: "需天天至醫院照射 vs 免放療",
+            optA: "100 人皆需接受 3~5 週每日放療",
+            optB: "約 90 人無需放療 (10 人因淋巴需追加)",
+            iconA: 100,
+            iconB: 10
+          }
+        ]
+      },
+      step4_values: {
+        heading: "步驟四：我在意的價值觀評估（1分完全不在意 ~ 5分極度在意）",
+        questions: [
+          { q: "保留自己原本的乳房外觀與身體感覺，對我的自信與心理非常重要。", scale: "1 - 2 - 3 - 4 - 5" },
+          { q: "我非常害怕『局部復發』，希望盡可能把局部復發率降到最低。", scale: "1 - 2 - 3 - 4 - 5" },
+          { q: "我的住家或工作離醫院較遠，連續一個月每天跑醫院放療會造成很大的生活負擔。", scale: "1 - 2 - 3 - 4 - 5" },
+          { q: "如果未來不幸局部復發，我能理解仍可進行二次全切除補救且不影響存活率。", scale: "1 - 2 - 3 - 4 - 5" }
+        ]
+      },
+      step5_decision_talk: {
+        heading: "步驟五：確認我的想法與提問（SHARE 對話準備）",
+        currentLean: "我目前比較傾向的方案是：[ ] 乳房保留手術+放療  [ ] 全乳房切除  [ ] 全切除合併自費重建  [ ] 尚未決定",
+        questionsForDoctor: [
+          "1. 依據我腫瘤的位置、大小與乳房比例，做保留手術後的外觀預估會對稱嗎？",
+          "2. 如果我選擇保留手術，我們醫院的放射治療排程與交通配套如何安排？",
+          "3. 如果我考慮全乳房切除合併立即重建，自費材質與手術風險有哪些？"
+        ],
+        evidenceReference: "實證出處：2024 NCCN Guidelines for Breast Cancer 及 Early Breast Cancer Trialists' Collaborative Group (EBCTCG) Oxford Meta-Analysis (Lancet, 2023)。",
+        coiStatement: "利益衝突揭露：本輔助工具由乳房外科與放腫科團隊編製，無任何重建材質廠商贊助，純粹維護病人自主選擇權益。"
+      }
+    };
+  },
+
+  generateBreastCancerChangelog() {
+    return [
+      {
+        field: "破解『全切除比較安全』迷思",
+        before: "草案未強調存活率相同，導致病患產生全切除才能保命的過度焦慮。",
+        after: "開宗明義引證 10 年整體存活率完全相同 (90~92%)，將決策焦點移至外觀與放療取捨。",
+        rationale: "人因工程認知重構：校正病患關鍵認知偏誤，減少不必要的全乳切除創傷。"
+      },
+      {
+        field: "納入身體心像 (Body Image) 全人指標",
+        before: "僅列出手術名詞與放療次數，缺乏生活品質評估。",
+        after: "量化呈現 85% 滿意度與身體心像價值觀題組。",
+        rationale: "全人照護（Bio-Psycho-Social）：照顧女性心理尊嚴與親密關係。"
+      }
+    ];
+  },
+
+  /**
+   * 通用型 PDA 重構邏輯
+   */
+  generateGenericGoldPDA(parsedData, auditReport) {
+    const title = parsedData.title || "醫療處置決策輔助工具";
+    const disease = parsedData.disease || "臨床特定健康狀況";
+    const options = parsedData.options && parsedData.options.length >= 2 ? parsedData.options : [
+      { name: "處置方案 A (常規介入治療)" },
+      { name: "處置方案 B (替代處置方案)" }
+    ];
+
+    return {
+      title: `【${disease}】醫療處置抉擇決策輔助工具`,
+      badge: "IPDAS 標準重構版",
+      diseaseName: disease,
+      targetAudience: parsedData.targetAudience || "面臨此處置抉擇之病友與照護家屬",
+      step1_introduction: {
+        heading: "步驟一：認識我的疾病與情境",
+        content: `親愛的病友與家屬您好：當您面臨【${disease}】時，臨床上通常不只一種處置方式。每種方式都有其預期效益與可能面臨的風險。
+這份決策輔助工具將協助您與醫療團隊共同討論，找出最符合您生活目標與個人價值的最佳選擇。`,
+        naturalCourse: "【自然病程說明】：若選擇暫不介入處置，請與醫師評估疾病自然演進之速度與安全監控間隔。"
+      },
+      step2_options: {
+        heading: "步驟二：我的醫療處置選項",
+        list: options.map((opt, idx) => ({
+          name: `選項 ${String.fromCharCode(65 + idx)}：${opt.name}`,
+          procedure: `依據臨床指引執行之標準醫療程序（包含前置檢查、執行流程與後續照護）。`,
+          stay: "依個別處置規定辦理",
+          anesthesia: "依醫療處置需求"
+        }))
+      },
+      step3_comparison: {
+        heading: "步驟三：好處、風險與機率比較（以每 100 位病友為基準）",
+        timeframe: "臨床追蹤期間",
+        denominator: "每 100 位病友",
+        matrix: [
+          {
+            indicator: "主要療效與效益 (雙向框架)",
+            desc: "症狀改善或達成目標 vs 未達預期",
+            optA: "約 85 人達成改善 (15 人需再評估)",
+            optB: "約 80 人達成改善 (20 人需再評估)",
+            iconA: 85,
+            iconB: 80
+          },
+          {
+            indicator: "潛在副作用或不適發生率",
+            desc: "發生不良反應 vs 無明顯不適",
+            optA: "約 5~10 人有輕微不適 (90~95 人無不良反應)",
+            optB: "約 5~8 人有輕微不適 (92~95 人無不良反應)",
+            iconA: 8,
+            iconB: 6
+          }
+        ]
+      },
+      step4_values: {
+        heading: "步驟四：我在意的價值觀評估（1分完全不在意 ~ 5分極度在意）",
+        questions: [
+          { q: "我希望治療方式能盡快恢復日常工作與家庭生活。", scale: "1 - 2 - 3 - 4 - 5" },
+          { q: "我希望盡可能減少治療過程帶來的副作用與不適。", scale: "1 - 2 - 3 - 4 - 5" },
+          { q: "我希望能清楚掌握所有自費項目與經濟負擔。", scale: "1 - 2 - 3 - 4 - 5" }
+        ]
+      },
+      step5_decision_talk: {
+        heading: "步驟五：確認我的想法與提問（SHARE 對話準備）",
+        currentLean: "我目前比較傾向的方案是：[ ] 選項 A  [ ] 選項 B  [ ] 還在考慮中",
+        questionsForDoctor: [
+          "1. 依據我的個人身體狀況與各項檢查結果，醫師您最建議哪一種方案？原因是什麼？",
+          "2. 這個治療方案對我未來半年的日常生活、工作會有什麼具體影響？",
+          "3. 我大約需要多久之內做出決定？我還有時間和家人好好討論嗎？"
+        ],
+        evidenceReference: "實證出處：依據國內外最新臨床治療指引與系統性實證回顧。",
+        coiStatement: "利益衝突揭露：本輔助工具由醫療教學團隊研發，無任何廠商商業贊助，嚴守醫病利益中立。"
+      }
+    };
+  },
+
+  generateGenericChangelog(parsedData, auditReport) {
+    return [
+      {
+        field: "結構化 5 步驟 SDM 框架重組",
+        before: "非結構化文字片段，病患不易循序漸進理解。",
+        after: "依據 IPDAS 規範重構成標準 5 步驟（疾病認知 -> 選項說明 -> 矩陣機率 -> 價值觀量表 -> 醫病提問）。",
+        rationale: "人因工程（Human Factors）：資訊分層 (Progressive Information Architecture)，大幅降低認知負擔。"
+      },
+      {
+        field: "機率分母與雙向框架標準化",
+        before: "數據表達不一致或缺乏正面負面平衡對照。",
+        after: "統一以每 100 人為分母，同時呈現改善率與未改善率。",
+        rationale: "避免框架偏誤 (Framing Bias) 與分母忽略 (Denominator Neglect)。"
+      }
+    ];
+  },
+
+  /**
+   * 轉換為 Markdown 格式供匯出
+   */
+  buildMarkdown(doc) {
+    let md = `# ${doc.title}\n\n`;
+    md += `> **目標對象**：${doc.targetAudience}\n`;
+    md += `> **疾病情境**：${doc.diseaseName}\n\n`;
+
+    md += `## ${doc.step1_introduction.heading}\n\n`;
+    md += `${doc.step1_introduction.content}\n\n`;
+    md += `> ${doc.step1_introduction.naturalCourse}\n\n`;
+
+    md += `## ${doc.step2_options.heading}\n\n`;
+    doc.step2_options.list.forEach(opt => {
+      md += `### ${opt.name}\n`;
+      md += `- **執行程序**：${opt.procedure}\n`;
+      md += `- **住院天數**：${opt.stay}\n`;
+      md += `- **麻醉方式**：${opt.anesthesia}\n\n`;
+    });
+
+    md += `## ${doc.step3_comparison.heading}\n\n`;
+    md += `*基準：${doc.step3_comparison.timeframe}，統一以 ${doc.step3_comparison.denominator} 進行雙向框架呈現*\n\n`;
+    md += `| 比較指標 (雙向平衡) | ${doc.step2_options.list.map(o => o.name.split('：')[1] || o.name).join(' | ')} |\n`;
+    md += `| :--- | ${doc.step2_options.list.map(() => ':---').join(' | ')} |\n`;
+
+    doc.step3_comparison.matrix.forEach(row => {
+      const vals = [row.optA, row.optB, row.optC].filter(Boolean);
+      md += `| **${row.indicator}**<br><small>${row.desc}</small> | ${vals.join(' | ')} |\n`;
+    });
+    md += `\n`;
+
+    md += `## ${doc.step4_values.heading}\n\n`;
+    doc.step4_values.questions.forEach((q, i) => {
+      md += `${i + 1}. **${q.q}**\n   - 重要度評分：[ 1 完全不在意 ] [ 2 ] [ 3 中等 ] [ 4 ] [ 5 極度在意 ]\n\n`;
+    });
+
+    md += `## ${doc.step5_decision_talk.heading}\n\n`;
+    md += `### 我的意向：\n${doc.step5_decision_talk.currentLean}\n\n`;
+    md += `### 我想向主治醫師討論的 3 個問題：\n`;
+    doc.step5_decision_talk.questionsForDoctor.forEach(q => {
+      md += `- ${q}\n`;
+    });
+    md += `\n---\n`;
+    md += `*${doc.step5_decision_talk.evidenceReference}*\n\n`;
+    md += `*${doc.step5_decision_talk.coiStatement}*\n`;
+
+    return md;
+  }
+};
+
+if (typeof window !== "undefined") {
+  window.OptimizerEngine = OptimizerEngine;
+}
+
+
+/* ==========================================
+ * FILE: js/script_engine.js
+ * ========================================== */
+/**
+ * Video PDA 5幕式腳本編導引擎 (Video PDA Script Studio Engine)
+ * 將靜態 PDA 轉換為符合認知負荷理論、全人照護與人因工程的多媒體分鏡腳本
+ */
+
+const ScriptEngine = {
+  /**
+   * 生成 5 幕式 Video PDA 分鏡腳本
+   * @param {Object} optimizedPDA 優化後的結構化 PDA
+   * @returns {Object} 完整分鏡腳本資料與 AI 生成 Prompt 包
+   */
+  generateScript(optimizedPDA) {
+    const doc = optimizedPDA.structuredDoc || optimizedPDA;
+    const disease = doc.diseaseName || "臨床醫療決策";
+    const title = doc.title || "醫病共享決策 Video PDA";
+
+    // 依據疾病主題選擇精準分鏡配置
+    const isProstate = /攝護腺|前列腺/i.test(disease + title);
+    const isDiabetes = /糖尿病|血糖/i.test(disease + title);
+    const isBreastCancer = /乳癌|乳房/i.test(disease + title);
+
+    let scenes = [];
+
+    if (isProstate) {
+      scenes = this.getProstateScenes(doc);
+    } else if (isDiabetes) {
+      scenes = this.getDiabetesScenes(doc);
+    } else if (isBreastCancer) {
+      scenes = this.getBreastCancerScenes(doc);
+    } else {
+      scenes = this.getGenericScenes(doc);
+    }
+
+    const totalDurationSeconds = scenes.reduce((acc, s) => acc + s.duration, 0);
+
+    return {
+      title: `【Video PDA 動畫分鏡腳本】${title}`,
+      targetAudience: doc.targetAudience || "病友與照護家屬",
+      totalDurationSeconds,
+      totalDurationFormatted: `${Math.floor(totalDurationSeconds / 60)} 分 ${totalDurationSeconds % 60} 秒`,
+      scenes,
+      promptPacks: this.buildPromptPacks(title, scenes),
+      humanFactorsAudioVisualPrinciples: [
+        {
+          rule: "雙重編碼 (Dual Coding Theory)",
+          desc: "旁白提及關鍵數字時，畫面同步高亮 100 人矩陣圖，避免耳聽與眼看不一致造成的認知干擾。"
+        },
+        {
+          rule: "情感降噪 (Emotional De-escalation)",
+          desc: "開場使用暖色調與同理心語調，禁用血腥畫面或高飽和度警示紅字，舒緩病患的急性恐慌。"
+        },
+        {
+          rule: "視覺對稱性 (Visual Symmetry)",
+          desc: "處置選項採用相同格線、同等字級與中立卡片排列，杜絕視覺權重誘導偏好。"
+        },
+        {
+          rule: "賦能收尾 (Empowerment Call-to-Action)",
+          desc: "結尾不給予單一指令，而是提供『我想問醫師的 3 個問題』，促成診間雙向有效對話。"
+        }
+      ]
+    };
+  },
+
+  /**
+   * 攝護腺癌 5 幕分鏡腳本
+   */
+  getProstateScenes(doc) {
+    return [
+      {
+        sceneNumber: 1,
+        actName: "第 1 幕：同理開場與疾病認知 (Empathy & Background)",
+        timing: "00:00 - 00:30 (30秒)",
+        duration: 30,
+        title: "面對早期攝護腺癌，您並不孤單",
+        visualDescription: "溫暖柔和的診間光線。個管師或醫師坐在桌旁，神情溫和且具同理心。畫面淡入主題標題字卡，搭配人體器官簡約扁平插圖，說明攝護腺位置與低度惡性腫瘤生長緩慢的特質。",
+        aiImagePrompt: "A compassionate medical doctor and an elderly Asian male patient sitting together in a warm, modern hospital consultation room, soft natural sunlight, relaxed and trusting atmosphere, 3D modern clean medical illustration style, 8k resolution, cinematic lighting --ar 16:9",
+        voiceoverText: "親愛的病友您好：當得知自己罹患攝護腺癌時，您心中或許充滿擔憂。但請您放心，早期低度惡性的攝護腺癌生長通常非常緩慢。醫學研究證實，不論哪種治療方式，十年的存活率都高達九成九以上！接下來，讓我們一起了解適合您的醫療選項。",
+        onScreenText: "【早期攝護腺癌】生長緩慢・十年存活率超過 99%・與醫療團隊共同選擇最佳方案",
+        humanFactorsGuidance: "語調溫和堅定，前 5 秒建立心理安全感，避免病理切片等高刺激畫面。"
+      },
+      {
+        sceneNumber: 2,
+        actName: "第 2 幕：認識你的醫療選項 (Options & Procedures)",
+        timing: "00:30 - 01:15 (45秒)",
+        duration: 45,
+        title: "三種標準醫療選項：監控、手術或放療",
+        visualDescription: "畫面水平平分為三張等大卡片：左側【積極監控】（日曆與抽血圖示）、中間【機器手臂切除手術】（微創手臂與傷口小圖示）、右側【放射線治療】（精準射線照射圖示）。動態光圈依序引導視線。",
+        aiImagePrompt: "Three equal medical information cards side by side on a clean soft teal background: Card 1 with regular checkup calendar icon, Card 2 with high-tech robotic surgery icon, Card 3 with precision radiation beam icon, modern human-factors infographic style, minimalist clean layout --ar 16:9",
+        voiceoverText: "臨床上有三種主要選擇：第一種是『積極監控』，暫時不動刀或放療，每三到六個月定期追蹤指數，若有變化再啟動治療；第二種是『達文西微創手術』，在全身麻醉下切除攝護腺，需住院約五到七天；第三種是『放射線治療』，門診每天照射一次，連續七到八週，免開刀也不需住院。",
+        onScreenText: "選項 A：積極監控 (定期追蹤) | 選項 B：微創切除手術 (住院5-7天) | 選項 C：放射線治療 (門診每日電療)",
+        humanFactorsGuidance: "三張卡片顏色明度一致，確保不產生視覺偏好。"
+      },
+      {
+        sceneNumber: 3,
+        actName: "第 3 幕：好處、風險與發生率 (Benefits & 100-Person Matrix)",
+        timing: "01:15 - 02:15 (60秒)",
+        duration: 60,
+        title: "客觀數據：以每 100 位病友為基準的真實比較",
+        visualDescription: "動態 100 人矩陣圖（Icon Array）。畫面展示 10x10 的人物圖示，隨著旁白逐項展示存活率（99/100 綠色）、尿失禁機率（手術 10 人需尿布，放療 2 人，監控 0 人）及勃起功能保留率，雙向數據並列。",
+        aiImagePrompt: "Medical infographic of a 10x10 icon array showing 100 stylized human figures, 99 figures glowing soft green indicating survival, alongside clean comparative horizontal progress bars for urinary continence and vitality, sleek UI design, high legibility --ar 16:9",
+        voiceoverText: "讓我們看每 100 位病友追蹤五年的統計數據：在存活率方面，三種方式每 100 人都有 99 人長期健康存活。差別在於生活品質——手術切除每 100 人約有 10 人可能需要長期穿尿布，但能彻底拿掉腫瘤；放射線治療尿失禁機率較低，每 100 人約 2 人，但約有 6 人可能在排便時微量出血；積極監控則完全沒有手術或放療的副作用。",
+        onScreenText: "【每 100 人追蹤 5 年】存活率：皆為 99 人 | 尿失禁需尿布：手術約10人 vs 放療約2人 vs 監控0人",
+        humanFactorsGuidance: "嚴格遵守統一分母與雙重編碼，旁白數字與視覺矩陣同步跳動。"
+      },
+      {
+        sceneNumber: 4,
+        actName: "第 4 幕：什麼對你最重要？(Values Clarification)",
+        timing: "02:15 - 03:00 (45秒)",
+        duration: 45,
+        title: "衡量心中的價值觀天平",
+        visualDescription: "畫面出現一座溫暖動態平衡天平。兩側輪播不同的生活考量圖卡：『徹底切除腫瘤以求安心』vs『保有排尿控制與性生活』vs『不想連續兩個月天天跑醫院』。文字浮現 1 到 5 分評量引導。",
+        aiImagePrompt: "A sleek balanced scale weighing patient values: one side with peace of mind icon, other side with active lifestyle and vitality icons, soft pastel colors, modern empathetic motion graphic design --ar 16:9",
+        voiceoverText: "每個人的生活重心都不同。您最在意的是什麼呢？是希望盡快拿掉腫瘤換取心安？還是非常在乎術後排尿與性功能的自主控制？或是希望能正常上班、不想每天奔波醫院？您可以把您最在乎的項目記錄下來，這將是做決定的重要指引。",
+        onScreenText: "【我在意的價值觀】1. 徹底切除的安心感  2. 排尿控制與性生活  3. 日常工作與時間彈性",
+        humanFactorsGuidance: "全人照護（Bio-Psycho-Social）融入，引導病患將焦點回歸自身生活品質。"
+      },
+      {
+        sceneNumber: 5,
+        actName: "第 5 幕：準備對話：與醫師一起做決定 (Action & SHARE Talk)",
+        timing: "03:00 - 03:30 (30秒)",
+        duration: 30,
+        title: "帶著問題，與您的主治醫師共同討論",
+        visualDescription: "病患與家人拿著 PDA 筆記單，自信且放鬆地與醫師進行雙向對話。畫面最後定格在『我想問醫師的 3 個問題』字卡與醫院諮詢資訊。",
+        aiImagePrompt: "An Asian patient and his spouse in a warm consultation room holding a medical discussion sheet, smiling together with the doctor, collaborative atmosphere, high-end healthcare branding --ar 16:9",
+        voiceoverText: "醫療沒有標準答案，最適合您的方案就是最好的選擇！在下次門診前，歡迎您記下想問醫師的問題，例如：『以我的條件適合積極監控嗎？』我們將與您一起做出最安心的醫療決定。",
+        onScreenText: "【我想向醫師提問】1. 我適合積極監控嗎？ 2. 手術或放療對我生活的具體影響？ 3. 我還有多少時間與家人討論？",
+        humanFactorsGuidance: "SHARE Approach 賦能收尾，激勵病患積極參與對話。"
+      }
+    ];
+  },
+
+  /**
+   * 糖尿病二線用藥 5 幕分鏡
+   */
+  getDiabetesScenes(doc) {
+    return [
+      {
+        sceneNumber: 1,
+        actName: "第 1 幕：同理開場與血糖情境 (Empathy & Diabetes Goal)",
+        timing: "00:00 - 00:30 (30秒)",
+        duration: 30,
+        title: "血糖未達標？一起找到升級控糖的最佳幫手",
+        visualDescription: "日常早晨測量血糖情境，病友看著血糖機數值。衛教師親切登場，引導了解血糖管理的新概念——不只降糖，更要保護心腎器官。",
+        aiImagePrompt: "A friendly Asian diabetes educator speaking to a middle-aged patient with a modern glucose monitor chart in the background, bright cheerful clinic, 3D medical graphic style --ar 16:9",
+        voiceoverText: "親愛的糖友您好：當常規口服藥無法讓糖化血色素達標時，加入第二線藥物能及早保護血管。現代糖尿病用藥不僅能降血糖，更能兼顧保護心臟、保護腎臟與體重控制。讓我們一起來了解。",
+        onScreenText: "【第二型糖尿病升級管理】降糖 + 保護心腎 + 體重管理",
+        humanFactorsGuidance: "正向引導，將『加藥』定義為『升級保護』而非『病情惡化懲罰』。"
+      },
+      {
+        sceneNumber: 2,
+        actName: "第 2 幕：認識第二線用藥選項 (Three Main Drug Classes)",
+        timing: "00:30 - 01:15 (45秒)",
+        duration: 45,
+        title: "三大二線好幫手：SGLT2、GLP-1 與 DPP-4",
+        visualDescription: "畫面展示三種藥物卡片：SGLT2 排糖藥（尿液排糖圖示）、GLP-1 腸泌素（每週針劑或口服/抑制食慾圖示）、DPP-4 溫和口服（溫和穩定圖示）。",
+        aiImagePrompt: "Three modern 3D pharmaceutical cards showing drug mechanisms: SGLT2 kidney excretion, GLP-1 appetite regulation, DPP-4 enzymatic balance, clean healthcare typography --ar 16:9",
+        voiceoverText: "主要有三種選擇：SGLT2 排糖藥，每天一顆，透過尿液排出多餘糖分；GLP-1 腸泌素，每週打一次或每天口服，能抑制食慾並幫助減重；DPP-4 抑制劑，每天一顆，藥性溫和穩定、極少引起低血糖。",
+        onScreenText: "選項 A：SGLT2 排糖藥 (口服) | 選項 B：GLP-1 腸泌素 (每週針劑/口服) | 選項 C：DPP-4 溫和口服",
+        humanFactorsGuidance: "清楚標明服藥途徑（口服 vs 每週針劑），降低對注射的排斥感。"
+      },
+      {
+        sceneNumber: 3,
+        actName: "第 3 幕：好處、器官保護與副作用比較 (Probabilities & Organs)",
+        timing: "01:15 - 02:15 (60秒)",
+        duration: 60,
+        title: "器官保護、減重與副作用量化分析",
+        visualDescription: "心臟、腎臟與體重秤圖表並列。動態展示 HbA1c 降幅、體重減輕公斤數與常見副作用發生比例（每 100 人中 5~8 人感染 vs 15~20 人噁心）。",
+        aiImagePrompt: "Infographic comparing heart protection, kidney preservation, and weight reduction metrics across three medications with clear percentage badges and human icons --ar 16:9",
+        voiceoverText: "看實證數據：在減重方面，GLP-1 每 100 人約有 85 人能減輕 3 到 5 公斤；在器官保護上，SGLT2 與 GLP-1 都有國際指引證實能顯著降低心血管與腎臟病變風險。副作用方面，排糖藥每 100 人約 6 人可能有泌尿道感染，多喝水即可預防；GLP-1 初期每 100 人約 18 人有胃脹噁心，兩週後多會適應改善。",
+        onScreenText: "【每 100 人數據】GLP-1：85人減重3-5kg・心血管保護 | SGLT2：心腎雙重保護・需多喝水 | DPP-4：腸胃最溫和",
+        humanFactorsGuidance: "強調副作用的因應策略（如多喝水、初期適應期），降低恐懼。"
+      },
+      {
+        sceneNumber: 4,
+        actName: "第 4 幕：我在意的考量 (Values & Lifestyle)",
+        timing: "02:15 - 03:00 (45秒)",
+        duration: 45,
+        title: "哪一個優點最吸引您？",
+        visualDescription: "生活情境切換：體態自信、害怕打針、每日喝水習慣、家族心臟病史。天平呈現病友的個人生活型態考量。",
+        aiImagePrompt: "Illustration of patient lifestyle priorities: weight management, needle aversion vs convenience, organ protection goals, clean modern flat design --ar 16:9",
+        voiceoverText: "您最在乎的是什麼？是否希望兼顧體重控制與器官保護？還是非常排斥打針、希望純口服就好？或是平時容易胃脹氣、希望藥效越溫和越好？",
+        onScreenText: "【您的考量】1. 減重與心腎保護 2. 避免打針針劑 3. 避免腸胃不適",
+        humanFactorsGuidance: "將藥物機轉連結到病友的真實生活習慣。"
+      },
+      {
+        sceneNumber: 5,
+        actName: "第 5 幕：與醫師共同擬定處方 (SHARE Decision)",
+        timing: "03:00 - 03:30 (30秒)",
+        duration: 30,
+        title: "帶著想法，與醫師討論專屬您的控糖計畫",
+        visualDescription: "診間中醫師與糖友共同檢視抽血數值與藥物選擇單，氣氛輕鬆和諧。",
+        aiImagePrompt: "A doctor explaining medication options with an engaged patient looking at a decision booklet, warm medical setting --ar 16:9",
+        voiceoverText: "每位糖友的生活習慣與身體條件都獨一無二。請在下次門診時，把您的考量告訴醫師與衛教師，讓我們一起為您量身打造最佳的控糖方案！",
+        onScreenText: "【門診討論】1. 我適合哪種二線藥？ 2. 健保給付與自費規定？ 3. 何時回診抽血追蹤？",
+        humanFactorsGuidance: "賦能收尾，引導回診對話。"
+      }
+    ];
+  },
+
+  /**
+   * 乳癌手術 5 幕分鏡
+   */
+  getBreastCancerScenes(doc) {
+    return [
+      {
+        sceneNumber: 1,
+        actName: "第 1 幕：同理開場與破除迷思 (Empathy & Survival Reality)",
+        timing: "00:00 - 00:30 (30秒)",
+        duration: 30,
+        title: "確診早期乳癌：存活率一樣高，您可以安心做選擇",
+        visualDescription: "女性乳房外科醫師以溫柔堅定的眼神對話。畫面浮現【存活率完全相同】字卡，破除『全切除才活得久』的迷思。",
+        aiImagePrompt: "A compassionate female surgical oncologist talking with a female patient holding hands gently, reassuring and warm atmosphere, premium hospital clinic, 3D modern illustration --ar 16:9",
+        voiceoverText: "親愛的病友您好：確診乳癌時，許多人會擔心是否要把整個乳房切掉才安全。國際大型醫學研究證實：『乳房保留手術合併放療』與『全乳房切除』，兩者的十年存活率完全一樣，高達九成以上！請放下恐懼，依據您最在意的生活品質來選擇。",
+        onScreenText: "【重要實證】乳房保留手術 + 放療 ＝ 全乳房切除手術（十年存活率皆為 90%~92%）",
+        humanFactorsGuidance: "開場即打破錯誤認知，給予女性病患極大心理支持。"
+      },
+      {
+        sceneNumber: 2,
+        actName: "第 2 幕：認識兩種手術方式 (Surgical Options)",
+        timing: "00:30 - 01:15 (45秒)",
+        duration: 45,
+        title: "保留手術 + 放療 vs 全乳房切除",
+        visualDescription: "左右對稱圖卡：左側【保留手術】（小範圍切除、保留外觀、放療儀器）、右側【全切除手術】（平坦疤痕、可選擇自費重建）。",
+        aiImagePrompt: "Side-by-side medical illustration cards: Left card showing breast conservation surgery concept with targeted radiotherapy, Right card showing mastectomy and reconstruction concept, elegant pink ribbon medical tone --ar 16:9",
+        voiceoverText: "兩種主要手術方式：選項 A 是乳房保留手術，只切除腫瘤與周圍邊緣，保留原本乳房外觀與大部分感覺，術後需接受三到五週的門診放射治療；選項 B 是全乳房切除，將單側乳房組織切除，通常免除放療，可評估是否自費進行重建手術。",
+        onScreenText: "選項 A：乳房保留手術 + 術後放療 (保留外貌) | 選項 B：全乳房切除手術 (免放療 / 可評估重建)",
+        humanFactorsGuidance: "圖像使用優雅簡約線條，避免產生身體創傷感。"
+      },
+      {
+        sceneNumber: 3,
+        actName: "第 3 幕：好處、風險與生活衝擊比較 (100-Person Matrix)",
+        timing: "01:15 - 02:15 (60秒)",
+        duration: 60,
+        title: "每 100 位病友的十年追蹤結果",
+        visualDescription: "100 人矩陣圖對照：存活率（兩者皆 91 人）、局部小復發率（保留約 6 人 vs 全切除約 2 人，皆可補救）、身體外觀滿意度（保留 85 人 vs 全切除 50 人）。",
+        aiImagePrompt: "Infographic with pink and teal stylized patient icons displaying 10-year follow up outcomes: equal survival rate 91%, body image satisfaction 85% vs 50%, clean layout --ar 16:9",
+        voiceoverText: "追蹤十年的數據顯示：在存活率上兩者完全相同；在局部復發率方面，保留手術每 100 人約有 6 人可能在同側局部復發，此時仍可進行二次全切除手術補救且不影響存活；在身體心像滿意度上，保留手術有 85 人高度滿意外觀，全切除則約 50 人滿意。",
+        onScreenText: "【每 100 人數據】10年存活率：皆 91 人 | 身體外觀滿意度：保留 85 人 vs 全切 50 人 | 需每天跑放療：保留 100 人 vs 全切 10 人",
+        humanFactorsGuidance: "強調即使局部復發亦不影響存活，化解恐慌。"
+      },
+      {
+        sceneNumber: 4,
+        actName: "第 4 幕：什麼對你最重要？(Body Image & Values)",
+        timing: "02:15 - 03:00 (45秒)",
+        duration: 45,
+        title: "聆聽自己內心的聲音",
+        visualDescription: "女性面對鏡子、工作職場、與家人擁抱之生活情境。價值觀天平浮現：保留外觀自信 vs 害怕復發 vs 交通與放療時間負擔。",
+        aiImagePrompt: "A graceful illustration of a modern woman looking in a mirror with self-love and confidence, lifestyle elements of family, work, and wellness around her --ar 16:9",
+        voiceoverText: "請問問自己的心：保留自身乳房外觀對您的自信有多重要？您是否能配合連續一個月每天到醫院接受放療？您對局部復發的焦慮程度有多高？這些感受沒有對錯，都是做決策最重要的依據。",
+        onScreenText: "【我的價值觀】1. 外觀保留與自信意象  2. 局部復發焦慮程度  3. 每日放療交通與生活安排",
+        humanFactorsGuidance: "深入全人與女性尊嚴層面，賦予病患自我接納的勇氣。"
+      },
+      {
+        sceneNumber: 5,
+        actName: "第 5 幕：與醫療團隊攜手決定 (Empowerment & SHARE)",
+        timing: "03:00 - 03:30 (30秒)",
+        duration: 30,
+        title: "帶著清單，與外科醫師開啟對話",
+        visualDescription: "女性外科醫師與病友並肩檢視病歷與提問清單，畫面定格在暖心標語。",
+        aiImagePrompt: "A caring female surgeon and an empowered patient reviewing a decision-making worksheet together, optimistic and supportive hospital atmosphere --ar 16:9",
+        voiceoverText: "無論您的決定是什麼，醫療團隊都會全力支持您走過每一步。請將您的想法與這三個問題帶到診間，讓我們與您一起做出最適合您的醫療選擇！",
+        onScreenText: "【我想向醫師提問】1. 我的腫瘤位置與乳房比例做保留手術的外觀預期？ 2. 放療排程如何搭配生活？ 3. 自費重建的選項與注意事項？",
+        humanFactorsGuidance: "Three Talk 賦能收尾，建立堅固醫病互信盟友關係。"
+      }
+    ];
+  },
+
+  /**
+   * 通用型 5 幕分鏡
+   */
+  getGenericScenes(doc) {
+    return [
+      {
+        sceneNumber: 1,
+        actName: "第 1 幕：同理開場與情境介紹",
+        timing: "00:00 - 00:30 (30秒)",
+        duration: 30,
+        title: `認識【${doc.diseaseName || '醫療決策'}】`,
+        visualDescription: "溫馨診間環境，醫師與個管師親切引言，帶出主題字卡與適用對象情境。",
+        aiImagePrompt: "Empathetic medical consultation scene, doctor talking with patient, clean hospital environment, warm lighting, high quality 3D medical illustration --ar 16:9",
+        voiceoverText: `親愛的病友您好：當面臨${doc.diseaseName || '醫療決策'}時，了解各個處置選項能幫助您做出最適合自己的決定。讓我們一起透過實證數據來認識不同的選擇。`,
+        onScreenText: `【${doc.title || '醫療處置共享決策'}】了解選項・權衡利弊・共同決定`,
+        humanFactorsGuidance: "建立親和感與信任感，降低焦慮。"
+      },
+      {
+        sceneNumber: 2,
+        actName: "第 2 幕：認識處置選項",
+        timing: "00:30 - 01:15 (45秒)",
+        duration: 45,
+        title: "醫療處置方案介紹",
+        visualDescription: "並列式資訊卡片，展示各處置方案之名稱、流程與基本特徵。",
+        aiImagePrompt: "Comparative medical infographic cards with icons, balanced symmetry, clean modern user interface --ar 16:9",
+        voiceoverText: "目前臨床上主要有以下幾種處置方案，每種方案都有其特定的執行流程與適用考量。",
+        onScreenText: "處置方案比較與流程說明",
+        humanFactorsGuidance: "卡片平衡呈現，無任何引導偏頗。"
+      },
+      {
+        sceneNumber: 3,
+        actName: "第 3 幕：好處、風險與機率比較",
+        timing: "01:15 - 02:15 (60秒)",
+        duration: 60,
+        title: "統一基準之數據與機率矩陣",
+        visualDescription: "100 人圖形矩陣（Icon Array）與雙向平衡圖卡，同時呈現改善率與風險機率。",
+        aiImagePrompt: "100 person icon array infographic showing clinical statistics with balanced green and accent colors, clean medical layout --ar 16:9",
+        voiceoverText: "以每 100 位接受處置的病友為基準，讓我們客觀比較各方案帶來的改善效益與潛在的副作用發生機率。",
+        onScreenText: "【每 100 人基準比較】效益與副作用雙向對照",
+        humanFactorsGuidance: "統一分母，雙向框架。"
+      },
+      {
+        sceneNumber: 4,
+        actName: "第 4 幕：什麼對你最重要？",
+        timing: "02:15 - 03:00 (45秒)",
+        duration: 45,
+        title: "價值觀與生活考量天平",
+        visualDescription: "動態天平引導病患思考工作、家庭、生活品質與心理承受度。",
+        aiImagePrompt: "Balanced scale with life quality and wellness icons, warm colors, empathetic design --ar 16:9",
+        voiceoverText: "每位病友的生活價值觀都不同。您最在乎的是恢復速度、副作用大小、還是日常生活自主性？請勾選您心中的重要考量。",
+        onScreenText: "【價值觀釐清】梳理個人最重要的生活目標",
+        humanFactorsGuidance: "全人照護引導。"
+      },
+      {
+        sceneNumber: 5,
+        actName: "第 5 幕：與醫師共同做決定",
+        timing: "03:00 - 03:30 (30秒)",
+        duration: 30,
+        title: "準備提問，啟動醫病共享決策",
+        visualDescription: "病患手持提問單與醫師積極討論，定格在提問清單與實證聲明。",
+        aiImagePrompt: "Doctor and patient collaborating in clinic with a shared decision aid document, smiling and empowered --ar 16:9",
+        voiceoverText: "帶著您的想法與想問的問題，在下次門診時與醫療團隊充分討論，一起做出最讓您安心的醫療決定！",
+        onScreenText: "【我想向醫師討論的 3 個問題】啟動 SHARE 共享決策對話",
+        humanFactorsGuidance: "Three Talk 賦能收尾。"
+      }
+    ];
+  },
+
+  /**
+   * 建立各 AI 動畫工具專用 Prompt 包
+   */
+  buildPromptPacks(title, scenes) {
+    return {
+      runway: scenes.map(s => ({
+        sceneNumber: s.sceneNumber,
+        title: s.title,
+        textPrompt: `Cinematic healthcare educational video, ${s.aiImagePrompt}. Smooth camera pan, warm diffuse studio lighting, 4k 60fps photorealistic.`,
+        duration: "5s looping / 10s extended"
+      })),
+      kling: scenes.map(s => ({
+        sceneNumber: s.sceneNumber,
+        title: s.title,
+        prompt: `高質感現代醫療動畫短片，${s.title}。柔和光線，醫學級 3D 扁平插畫風格，畫面乾淨專業，無噪點，運鏡平穩緩慢推進。`,
+        params: "--cfg 0.5 --mode professional"
+      })),
+      sora: scenes.map(s => ({
+        sceneNumber: s.sceneNumber,
+        title: s.title,
+        prompt: `Hyper-realistic medical decision aid sequence, ${s.aiImagePrompt}. Natural human expressions, soft hospital environment, slow dolly zoom, pristine depth of field.`
+      })),
+      heygen: {
+        avatar: "Professional Asian Doctor / Healthcare Nurse (Warm & Empathetic)",
+        voice: "zh-TW-YunJhe (Male) / zh-TW-HsiaoChen (Female)",
+        fullScriptZh: scenes.map(s => `【${s.actName}】\n${s.voiceoverText}`).join("\n\n")
+      },
+      canva: {
+        templateType: "Medical Educational Video (1920x1080 Landscape)",
+        slides: scenes.map(s => ({
+          slideNumber: s.sceneNumber,
+          headline: s.title,
+          body: s.onScreenText,
+          notes: `【旁白】: ${s.voiceoverText}\n【人因提示】: ${s.humanFactorsGuidance}`
+        }))
+      }
+    };
+  }
+};
+
+if (typeof window !== "undefined") {
+  window.ScriptEngine = ScriptEngine;
+}
+
+
+/* ==========================================
+ * FILE: js/media_player.js
+ * ========================================== */
+/**
+ * Video PDA 多媒體互動影院與語音合成引擎 (Media Player & TTS Engine)
+ * 提供 5 幕式分鏡即時動畫演示、100人矩陣圖動態渲染、繁體中文語音合成 (Web Speech TTS)
+ */
+
+const MediaPlayer = {
+  currentScript: null,
+  currentSceneIndex: 0,
+  isPlaying: false,
+  isPaused: false,
+  speechSynth: typeof window !== "undefined" ? window.speechSynthesis : null,
+  currentUtterance: null,
+  playbackSpeed: 1.0,
+  selectedVoice: null,
+  timerId: null,
+
+  /**
+   * 初始化播放器
+   */
+  init(scriptData) {
+    this.currentScript = scriptData;
+    this.currentSceneIndex = 0;
+    this.stop();
+    this.initVoices();
+  },
+
+  /**
+   * 初始化語音清單
+   */
+  initVoices() {
+    if (!this.speechSynth) return;
+    const loadVoices = () => {
+      const voices = this.speechSynth.getVoices();
+      // 優先尋找繁體中文 (zh-TW / zh-HK / zh-CN)
+      const twVoice = voices.find(v => v.lang === "zh-TW" || v.lang === "zh_TW" || v.lang.includes("zh-Hant") || v.name.includes("Taiwan") || v.name.includes("Han"));
+      const zhVoice = voices.find(v => v.lang.startsWith("zh"));
+      this.selectedVoice = twVoice || zhVoice || voices[0];
+    };
+
+    loadVoices();
+    if (this.speechSynth.onvoiceschanged !== undefined) {
+      this.speechSynth.onvoiceschanged = loadVoices;
+    }
+  },
+
+  /**
+   * 播放目前分鏡
+   */
+  playScene(index) {
+    if (!this.currentScript || !this.currentScript.scenes[index]) return;
+    this.currentSceneIndex = index;
+    this.stopSpeech();
+
+    const scene = this.currentScript.scenes[index];
+    this.renderSceneVisuals(scene);
+
+    if (this.speechSynth) {
+      const text = scene.voiceoverText;
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = this.playbackSpeed;
+      utterance.pitch = 1.0;
+      utterance.lang = "zh-TW";
+      if (this.selectedVoice) {
+        utterance.voice = this.selectedVoice;
+      }
+
+      utterance.onend = () => {
+        if (this.isPlaying && this.currentSceneIndex < this.currentScript.scenes.length - 1) {
+          // 自動過渡至下一幕
+          this.timerId = setTimeout(() => {
+            this.playScene(this.currentSceneIndex + 1);
+          }, 1200);
+        } else if (this.currentSceneIndex >= this.currentScript.scenes.length - 1) {
+          this.isPlaying = false;
+          this.updatePlayControlsUI();
+        }
+      };
+
+      utterance.onerror = (e) => {
+        console.warn("TTS error or interrupted:", e);
+      };
+
+      this.currentUtterance = utterance;
+      this.speechSynth.speak(utterance);
+    }
+
+    this.updateTimelineUI();
+  },
+
+  /**
+   * 全部自動播放
+   */
+  playAll() {
+    this.isPlaying = true;
+    this.isPaused = false;
+    this.playScene(this.currentSceneIndex);
+    this.updatePlayControlsUI();
+  },
+
+  /**
+   * 暫停
+   */
+  pause() {
+    this.isPlaying = false;
+    this.isPaused = true;
+    if (this.speechSynth) {
+      this.speechSynth.pause();
+    }
+    if (this.timerId) clearTimeout(this.timerId);
+    this.updatePlayControlsUI();
+  },
+
+  /**
+   * 恢復
+   */
+  resume() {
+    if (this.speechSynth && this.speechSynth.paused) {
+      this.speechSynth.resume();
+      this.isPlaying = true;
+      this.isPaused = false;
+      this.updatePlayControlsUI();
+    } else {
+      this.playAll();
+    }
+  },
+
+  /**
+   * 停止
+   */
+  stop() {
+    this.isPlaying = false;
+    this.isPaused = false;
+    this.stopSpeech();
+    if (this.timerId) clearTimeout(this.timerId);
+    this.updatePlayControlsUI();
+  },
+
+  stopSpeech() {
+    if (this.speechSynth) {
+      this.speechSynth.cancel();
+    }
+  },
+
+  nextScene() {
+    if (!this.currentScript) return;
+    if (this.currentSceneIndex < this.currentScript.scenes.length - 1) {
+      this.playScene(this.currentSceneIndex + 1);
+    }
+  },
+
+  prevScene() {
+    if (!this.currentScript) return;
+    if (this.currentSceneIndex > 0) {
+      this.playScene(this.currentSceneIndex - 1);
+    }
+  },
+
+  setSpeed(speed) {
+    this.playbackSpeed = parseFloat(speed);
+    if (this.isPlaying) {
+      this.playScene(this.currentSceneIndex);
+    }
+  },
+
+  /**
+   * 繪製動態分鏡畫面（包含 100人矩陣圖、卡片、天平等高品質人因視覺組件）
+   */
+  renderSceneVisuals(scene) {
+    const container = document.getElementById("theatre-canvas");
+    const subtitleEl = document.getElementById("theatre-subtitles");
+    const actBadgeEl = document.getElementById("theatre-act-badge");
+    const timingEl = document.getElementById("theatre-timing-badge");
+    const hfTipEl = document.getElementById("theatre-hf-tip");
+
+    if (actBadgeEl) actBadgeEl.textContent = scene.actName;
+    if (timingEl) timingEl.textContent = scene.timing;
+    if (subtitleEl) subtitleEl.textContent = scene.voiceoverText;
+    if (hfTipEl) hfTipEl.innerHTML = `<strong>人因視聽指引：</strong> ${scene.humanFactorsGuidance}`;
+
+    if (!container) return;
+
+    // 依據分鏡幕次產生高度視覺化情境
+    let visualHTML = "";
+
+    switch (scene.sceneNumber) {
+      case 1:
+        visualHTML = `
+          <div class="scene-frame scene-empathy animate-fade-in">
+            <div class="scene-overlay">
+              <div class="doctor-avatar-badge">
+                <div class="avatar-circle pulse-ring">👨‍⚕️</div>
+                <div>
+                  <h4 class="text-white font-bold text-lg">主治醫師 / 個案管理師</h4>
+                  <p class="text-teal-200 text-xs">醫病共享決策 (SDM) 臨床指引引言</p>
+                </div>
+              </div>
+              <div class="scene-title-card">
+                <span class="badge-primary px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider mb-2 inline-block">臨床決策引導</span>
+                <h2 class="text-2xl md:text-3xl font-black text-white leading-tight mb-2">${scene.title}</h2>
+                <div class="p-3 bg-white/10 backdrop-blur rounded-xl border border-white/20 text-white text-sm">
+                  ${scene.onScreenText}
+                </div>
+              </div>
+            </div>
+            <div class="scene-bg-gradient-1"></div>
+          </div>
+        `;
+        break;
+
+      case 2:
+        visualHTML = `
+          <div class="scene-frame scene-options animate-fade-in">
+            <div class="scene-header-bar">
+              <h3 class="text-white font-bold text-xl flex items-center gap-2">
+                <span>📋</span> 醫療處置方案平衡並列 (Symmetrical Options)
+              </h3>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-4xl px-4 z-10">
+              <div class="opt-card opt-card-1 animate-slide-up" style="animation-delay: 0.1s">
+                <div class="opt-icon">📅</div>
+                <h4 class="font-bold text-slate-800 text-base mb-1">積極監控 / 觀察</h4>
+                <p class="text-xs text-slate-600 mb-2">每 3~6 個月定期追蹤</p>
+                <div class="badge badge-success text-xs">免動刀 / 門診追蹤</div>
+              </div>
+              <div class="opt-card opt-card-2 animate-slide-up" style="animation-delay: 0.2s">
+                <div class="opt-icon">🦾</div>
+                <h4 class="font-bold text-slate-800 text-base mb-1">微創切除手術</h4>
+                <p class="text-xs text-slate-600 mb-2">徹底切除 / 全身麻醉</p>
+                <div class="badge badge-primary text-xs">住院 5~7 天</div>
+              </div>
+              <div class="opt-card opt-card-3 animate-slide-up" style="animation-delay: 0.3s">
+                <div class="opt-icon">⚡</div>
+                <h4 class="font-bold text-slate-800 text-base mb-1">放射線治療</h4>
+                <p class="text-xs text-slate-600 mb-2">高精準照射 / 免開刀</p>
+                <div class="badge badge-info text-xs">門診每日電療</div>
+              </div>
+            </div>
+          </div>
+        `;
+        break;
+
+      case 3:
+        visualHTML = `
+          <div class="scene-frame scene-probabilities animate-fade-in">
+            <div class="w-full max-w-4xl px-4 z-10">
+              <div class="flex items-center justify-between mb-3 text-white">
+                <h3 class="font-bold text-lg flex items-center gap-2">
+                  <span>📊</span> 100 人矩陣圖 (Icon Array: 統一每 100 位病友分母)
+                </h3>
+                <span class="text-xs bg-black/40 px-3 py-1 rounded-full border border-white/20">雙向平衡框架</span>
+              </div>
+              
+              <div class="bg-slate-900/85 backdrop-blur rounded-2xl p-4 border border-slate-700">
+                <div class="grid grid-cols-10 gap-1.5 justify-center max-w-sm mx-auto mb-4" id="icon-array-grid">
+                  ${this.generateIconArrayHTML(99, 1)}
+                </div>
+                
+                <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                  <div class="p-2 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-emerald-300">
+                    <span class="block font-bold text-sm">99 / 100</span>
+                    10年癌症存活率 (皆相同)
+                  </div>
+                  <div class="p-2 rounded-lg bg-blue-950/60 border border-blue-500/40 text-blue-300">
+                    <span class="block font-bold text-sm">10 vs 2 vs 0</span>
+                    長期需穿尿布 (手術vs放療vs監控)
+                  </div>
+                  <div class="p-2 rounded-lg bg-purple-950/60 border border-purple-500/40 text-purple-300">
+                    <span class="block font-bold text-sm">85 vs 55 vs 40</span>
+                    維持滿意生活品質/勃起功能
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        break;
+
+      case 4:
+        visualHTML = `
+          <div class="scene-frame scene-values animate-fade-in">
+            <div class="w-full max-w-3xl px-4 text-center z-10">
+              <div class="scale-balance-graphic mb-4">
+                <div class="scale-beam"></div>
+                <div class="scale-pan scale-pan-left">
+                  <div class="pan-card">
+                    <span class="text-2xl">🎯</span>
+                    <h5 class="font-bold text-xs">徹底切除求心安</h5>
+                  </div>
+                </div>
+                <div class="scale-pan scale-pan-right">
+                  <div class="pan-card">
+                    <span class="text-2xl">🌿</span>
+                    <h5 class="font-bold text-xs">保留自主生活品質</h5>
+                  </div>
+                </div>
+                <div class="scale-fulcrum"></div>
+              </div>
+
+              <h3 class="text-2xl font-black text-white mb-2">我在意的全人價值觀考量</h3>
+              <p class="text-teal-200 text-sm max-w-xl mx-auto mb-4">
+                沒有哪一個選擇是絕對完美的，只有最符合您生活目標的選擇。
+              </p>
+              
+              <div class="flex flex-wrap justify-center gap-2 text-xs text-white">
+                <span class="px-3 py-1.5 bg-white/15 rounded-xl border border-white/20">排尿正常無負擔 ⭐⭐⭐⭐⭐</span>
+                <span class="px-3 py-1.5 bg-white/15 rounded-xl border border-white/20">維持工作作息 ⭐⭐⭐⭐</span>
+                <span class="px-3 py-1.5 bg-white/15 rounded-xl border border-white/20">親密伴侶關係 ⭐⭐⭐⭐⭐</span>
+              </div>
+            </div>
+          </div>
+        `;
+        break;
+
+      case 5:
+        visualHTML = `
+          <div class="scene-frame scene-action animate-fade-in">
+            <div class="w-full max-w-3xl px-4 z-10">
+              <div class="bg-gradient-to-br from-teal-900/90 to-slate-900/90 backdrop-blur rounded-2xl p-6 border border-teal-500/40 text-white shadow-2xl">
+                <div class="flex items-center gap-3 mb-4">
+                  <div class="w-12 h-12 rounded-2xl bg-teal-500/30 flex items-center justify-center text-2xl border border-teal-400">
+                    🤝
+                  </div>
+                  <div>
+                    <h3 class="text-xl font-bold text-white">SHARE 醫病對話準備</h3>
+                    <p class="text-teal-300 text-xs">帶著這三個問題，在下次門診與醫療團隊討論</p>
+                  </div>
+                </div>
+
+                <div class="space-y-2 mb-4 text-sm">
+                  <div class="p-3 bg-white/10 rounded-xl border border-white/10 flex items-start gap-2">
+                    <span class="font-bold text-teal-300">Q1.</span>
+                    <span>以我的年齡、指數與身體條件，適合選擇積極監控還是手術？</span>
+                  </div>
+                  <div class="p-3 bg-white/10 rounded-xl border border-white/10 flex items-start gap-2">
+                    <span class="font-bold text-teal-300">Q2.</span>
+                    <span>各選項對我未來半年的日常生活與工作安排會有什麼具體衝擊？</span>
+                  </div>
+                  <div class="p-3 bg-white/10 rounded-xl border border-white/10 flex items-start gap-2">
+                    <span class="font-bold text-teal-300">Q3.</span>
+                    <span>如果我先選擇觀察，萬一指數上升，何時啟動治療最安全？</span>
+                  </div>
+                </div>
+
+                <div class="text-center">
+                  <span class="inline-block px-4 py-1.5 bg-emerald-500/30 border border-emerald-400 rounded-full text-emerald-200 text-xs font-semibold">
+                    ✅ 賦能病人・共享決策・全人照護
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        break;
+    }
+
+    container.innerHTML = visualHTML;
+  },
+
+  /**
+   * 產生 100 人 Icon Array 圖示網格
+   */
+  generateIconArrayHTML(greenCount, redCount) {
+    let html = "";
+    for (let i = 0; i < 100; i++) {
+      if (i < greenCount) {
+        html += `<span class="icon-person icon-alive" title="存活 (${i + 1}/100)">👤</span>`;
+      } else {
+        html += `<span class="icon-person icon-loss" title="因病過世 (${i + 1}/100)">👤</span>`;
+      }
+    }
+    return html;
+  },
+
+  updateTimelineUI() {
+    if (!this.currentScript) return;
+    const dotsContainer = document.getElementById("theatre-timeline-dots");
+    if (!dotsContainer) return;
+
+    dotsContainer.innerHTML = this.currentScript.scenes.map((s, idx) => {
+      const activeClass = idx === this.currentSceneIndex ? "timeline-dot-active" : "";
+      return `
+        <button onclick="MediaPlayer.playScene(${idx})" class="timeline-dot ${activeClass}" title="${s.actName}">
+          <span class="dot-num">${idx + 1}</span>
+          <span class="dot-label hidden md:inline">${s.title.substring(0, 10)}...</span>
+        </button>
+      `;
+    }).join("");
+  },
+
+  updatePlayControlsUI() {
+    const playBtn = document.getElementById("theatre-btn-play");
+    if (playBtn) {
+      if (this.isPlaying) {
+        playBtn.innerHTML = `<span>⏸️</span> 暫停`;
+        playBtn.onclick = () => this.pause();
+      } else if (this.isPaused) {
+        playBtn.innerHTML = `<span>▶️</span> 繼續`;
+        playBtn.onclick = () => this.resume();
+      } else {
+        playBtn.innerHTML = `<span>▶️</span> 自動連播`;
+        playBtn.onclick = () => this.playAll();
+      }
+    }
+  }
+};
+
+if (typeof window !== "undefined") {
+  window.MediaPlayer = MediaPlayer;
+}
+
+
+/* ==========================================
+ * FILE: js/ai_service.js
+ * ========================================== */
+/**
+ * AI 智慧服務與 API 串接模組 (AI Service & Prompt Engineering Client)
+ * 支援 Google Gemini API 聯網調用，並具備離線智慧備援 (Offline Fallback)
+ * 確保研討會現場斷網或無 API Key 時仍能 100% 穩定展示！
+ */
+
+const AIService = {
+  apiKey: localStorage.getItem("ipdas_gemini_api_key") || "",
+  model: localStorage.getItem("ipdas_gemini_model") || "gemini-1.5-flash",
+  useOnlineAPI: false,
+
+  setApiKey(key) {
+    this.apiKey = (key || "").trim();
+    if (this.apiKey) {
+      localStorage.setItem("ipdas_gemini_api_key", this.apiKey);
+      this.useOnlineAPI = true;
+    } else {
+      localStorage.removeItem("ipdas_gemini_api_key");
+      this.useOnlineAPI = false;
+    }
+  },
+
+  setModel(model) {
+    this.model = model;
+    localStorage.setItem("ipdas_gemini_model", model);
+  },
+
+  /**
+   * 執行 IPDAS 品質檢核診斷
+   */
+  async auditPDA(rawText, metadata = {}) {
+    // 先執行本機高精準人因規則解析
+    const parsedData = ParserEngine.parse(rawText, metadata);
+    const localAudit = AuditEngine.evaluate(parsedData);
+
+    // 如果沒有設定 API Key 或處於離線模式，直接回傳高品質本機檢核結果
+    if (!this.useOnlineAPI || !this.apiKey) {
+      return {
+        isOnline: false,
+        parsedData,
+        auditReport: localAudit
+      };
+    }
+
+    try {
+      const prompt = this.buildAuditPrompt(rawText);
+      const apiResponse = await this.callGeminiAPI(prompt);
+      return {
+        isOnline: true,
+        parsedData,
+        auditReport: localAudit,
+        aiDeepAnalysis: apiResponse
+      };
+    } catch (err) {
+      console.warn("Gemini API call failed, falling back to local engine:", err);
+      return {
+        isOnline: false,
+        fallbackError: err.message,
+        parsedData,
+        auditReport: localAudit
+      };
+    }
+  },
+
+  /**
+   * 執行 PDA 智慧重構
+   */
+  async optimizePDA(parsedData, auditReport) {
+    const localOptimized = OptimizerEngine.optimize(parsedData, auditReport);
+
+    if (!this.useOnlineAPI || !this.apiKey) {
+      return {
+        isOnline: false,
+        optimizedDoc: localOptimized
+      };
+    }
+
+    try {
+      const prompt = this.buildOptimizerPrompt(parsedData.rawText, auditReport);
+      const apiResponse = await this.callGeminiAPI(prompt);
+      return {
+        isOnline: true,
+        optimizedDoc: localOptimized,
+        aiCustomReconstruction: apiResponse
+      };
+    } catch (err) {
+      console.warn("Gemini API optimization fallback:", err);
+      return {
+        isOnline: false,
+        optimizedDoc: localOptimized
+      };
+    }
+  },
+
+  /**
+   * 調用 Google Gemini REST API
+   */
+  async callGeminiAPI(promptText) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: promptText }]
+          }
+        ],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 2500
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    return candidateText;
+  },
+
+  /**
+   * 建構專家級 IPDAS 檢核 Prompt（學員亦可直接複製至 ChatGPT/Claude/Gemini 使用）
+   */
+  buildAuditPrompt(rawText) {
+    return `你是一位國際醫病共享決策（SDM）與 IPDAS（國際病人決策輔助工具標準）頂尖評審專家兼人因工程（Human Factors Engineering）顧問。
+請嚴格依據 IPDAS 26 項檢核表標準與人因工程原則，審查以下由臨床教師提供的決策輔助工具草案：
+
+---
+【臨床教師草案內容】：
+${rawText}
+---
+
+請以繁體中文提供專業、犀利且具體可操作的品質檢核報告，輸出結構如下：
+1. 【總體評分與等級】（給予 0~100 分及 A+/A/B/C 等級）
+2. 【遺漏值與重大缺失清單】（特別檢查：是否漏掉不處置/積極監控選項？是否有自然病程？是否缺利益衝突與實證文獻？）
+3. 【人因工程與偏誤診斷】（檢查：機率分母是否混淆？是否只用正面框架誘導？閱讀難度是否超過國中程度？）
+4. 【條列式具體改進處方】（提供 3~5 點可立即修改的落實建議）`;
+  },
+
+  /**
+   * 建構專家級 PDA 優化重構 Prompt
+   */
+  buildOptimizerPrompt(rawText, auditReport) {
+    return `你是一位臨床決策輔助工具（PDA）設計大師。請依據 IPDAS 26 項黃金標準與 SDM 5 步驟架構，將以下草案重構為一份標準、完整、且符合國中以下閱讀水準的黃金版決策輔助工具。
+
+---
+【原始草案】：
+${rawText}
+---
+
+重構必須嚴格遵守以下人因規範：
+1. 步驟一：疾病介紹與情境（白話口語、說明自然病程）
+2. 步驟二：處置選項（必須納入積極監控/不處置等可行方案，版面篇幅平衡）
+3. 步驟三：利弊與機率比較（一律統一為「每 100 位病友」分母基準，同時呈現正面與負面雙向框架）
+4. 步驟四：我在意的價值觀評估（提供 1~5 分量表，涵蓋全人生活品質、工作、家庭與心理）
+5. 步驟五：我想問醫師的 3 個問題（Three Talk Model 賦能對話引導）與實證/利益衝突聲明。`;
+  }
+};
+
+if (typeof window !== "undefined") {
+  window.AIService = AIService;
+}
+
+
+/* ==========================================
+ * FILE: js/app.js
+ * ========================================== */
+/**
+ * IPDAS Master & Video PDA Studio 主控制器 (Main Application Controller)
+ */
+
+const App = {
+  state: {
+    activeTab: "tab-input",
+    currentPresetId: "prostate_cancer_flawed",
+    rawInputText: "",
+    diseaseName: "",
+    targetAudience: "",
+    parsedData: null,
+    auditReport: null,
+    optimizedDoc: null,
+    videoScript: null,
+    filterChecklist: "all", // "all" | "missing" | "passed"
+    checklistDimensionFilter: "all"
+  },
+
+  init() {
+    this.bindEvents();
+    this.loadPresetsDropdown();
+    this.loadPreset("prostate_cancer_flawed");
+    console.log("IPDAS Master App initialized successfully.");
+  },
+
+  bindEvents() {
+    // Tab 切換
+    document.querySelectorAll(".nav-tab-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const targetTab = btn.getAttribute("data-tab");
+        this.switchTab(targetTab);
+      });
+    });
+
+    // 案例下拉選單
+    const presetSelect = document.getElementById("preset-case-select");
+    if (presetSelect) {
+      presetSelect.addEventListener("change", (e) => {
+        this.loadPreset(e.target.value);
+      });
+    }
+
+    // API Key 設定儲存
+    const saveApiKeyBtn = document.getElementById("btn-save-apikey");
+    if (saveApiKeyBtn) {
+      saveApiKeyBtn.addEventListener("click", () => {
+        const keyInput = document.getElementById("input-gemini-key");
+        if (keyInput) {
+          AIService.setApiKey(keyInput.value);
+          this.showToast(keyInput.value ? "API Key 設定成功，已啟用 Gemini API 連線！" : "已切換至離線智慧備援模式。");
+        }
+      });
+    }
+  },
+
+  switchTab(tabId) {
+    this.state.activeTab = tabId;
+
+    // 更新 Tab 按鈕狀態
+    document.querySelectorAll(".nav-tab-btn").forEach(btn => {
+      if (btn.getAttribute("data-tab") === tabId) {
+        btn.classList.add("nav-tab-active");
+      } else {
+        btn.classList.remove("nav-tab-active");
+      }
+    });
+
+    // 切換內容面版
+    document.querySelectorAll(".tab-pane").forEach(pane => {
+      if (pane.id === tabId) {
+        pane.classList.remove("hidden");
+        pane.classList.add("block");
+      } else {
+        pane.classList.add("hidden");
+        pane.classList.remove("block");
+      }
+    });
+
+    // 若切換到影院，自動初始化播放器
+    if (tabId === "tab-player") {
+      if (!this.state.videoScript) {
+        this.generateVideoScript();
+      }
+      MediaPlayer.init(this.state.videoScript);
+      MediaPlayer.playScene(0);
+    }
+  },
+
+  loadPresetsDropdown() {
+    const select = document.getElementById("preset-case-select");
+    if (!select) return;
+
+    select.innerHTML = CLINICAL_PRESETS.map(p => {
+      return `<option value="${p.id}">【${p.badge}】${p.name}</option>`;
+    }).join("");
+  },
+
+  loadPreset(presetId) {
+    const preset = CLINICAL_PRESETS.find(p => p.id === presetId);
+    if (!preset) return;
+
+    this.state.currentPresetId = presetId;
+    const textarea = document.getElementById("raw-pda-input");
+    const diseaseInput = document.getElementById("input-disease-name");
+    const audienceInput = document.getElementById("input-target-audience");
+
+    if (textarea) textarea.value = preset.rawDraft;
+    if (diseaseInput) diseaseInput.value = preset.disease;
+    if (audienceInput) audienceInput.value = preset.targetAudience;
+
+    this.state.rawInputText = preset.rawDraft;
+    this.state.diseaseName = preset.disease;
+    this.state.targetAudience = preset.targetAudience;
+
+    this.showToast(`已載入案例：${preset.name}`);
+  },
+
+  /**
+   * 執行 IPDAS 檢核診斷流程
+   */
+  async runAudit() {
+    const textarea = document.getElementById("raw-pda-input");
+    const diseaseInput = document.getElementById("input-disease-name");
+    const audienceInput = document.getElementById("input-target-audience");
+
+    const rawText = textarea ? textarea.value.trim() : "";
+    if (!rawText) {
+      alert("請先貼入或輸入欲檢核的 PDA 草案內容！");
+      return;
+    }
+
+    const metadata = {
+      disease: diseaseInput ? diseaseInput.value.trim() : "",
+      targetAudience: audienceInput ? audienceInput.value.trim() : ""
+    };
+
+    this.state.rawInputText = rawText;
+    this.showLoading(true, "AI 正在逐項比對 IPDAS 26 項指標與人因工程原則...");
+
+    try {
+      const auditResult = await AIService.auditPDA(rawText, metadata);
+      this.state.parsedData = auditResult.parsedData;
+      this.state.auditReport = auditResult.auditReport;
+
+      // 同時預先執行優化重構與腳本生成
+      const optResult = await AIService.optimizePDA(this.state.parsedData, this.state.auditReport);
+      this.state.optimizedDoc = optResult.optimizedDoc;
+      this.state.videoScript = ScriptEngine.generateScript(this.state.optimizedDoc);
+
+      // 渲染各頁籤結果
+      this.renderAuditReportUI();
+      this.renderOptimizedPDAUI();
+      this.renderScriptStudioUI();
+
+      this.showLoading(false);
+      this.switchTab("tab-audit");
+      this.showToast("IPDAS 檢核診斷完成！已生成診斷報告與改進處方。");
+    } catch (err) {
+      this.showLoading(false);
+      alert("檢核過程發生錯誤：" + err.message);
+    }
+  },
+
+  /**
+   * 渲染 IPDAS 診斷報告介面
+   */
+  renderAuditReportUI() {
+    const report = this.state.auditReport;
+    if (!report) return;
+
+    // 1. 總分與等級卡片
+    const scoreValEl = document.getElementById("audit-overall-score");
+    const gradeBadgeEl = document.getElementById("audit-grade-badge");
+    const passRateEl = document.getElementById("audit-pass-rate");
+    const gradeTitleEl = document.getElementById("audit-grade-title");
+    const readabilityScoreEl = document.getElementById("audit-readability-score");
+    const readabilityLevelEl = document.getElementById("audit-readability-level");
+
+    if (scoreValEl) scoreValEl.textContent = report.overallScore;
+    if (gradeBadgeEl) {
+      gradeBadgeEl.textContent = `等級 ${report.grade}`;
+      gradeBadgeEl.className = `px-3 py-1 rounded-full text-xs font-bold uppercase ${report.gradeBadgeClass}`;
+    }
+    if (passRateEl) passRateEl.textContent = `${report.passedCount} / ${report.totalCount} 項 (${report.passRate}%)`;
+    if (gradeTitleEl) gradeTitleEl.textContent = report.gradeTitle;
+
+    if (readabilityScoreEl) readabilityScoreEl.textContent = `${report.readability.score} 分`;
+    if (readabilityLevelEl) readabilityLevelEl.textContent = report.readability.level;
+
+    // 2. 渲染雷達維度長條圖
+    this.renderCategoryScoresUI(report.categoryScores);
+
+    // 3. 渲染人因與偏差警示
+    this.renderWarningsUI(report.warnings);
+
+    // 4. 渲染改善處方清單
+    this.renderRecommendationsUI(report.recommendations);
+
+    // 5. 渲染 26 項完整檢核清單
+    this.renderChecklistTable();
+  },
+
+  renderCategoryScoresUI(catScores) {
+    const container = document.getElementById("audit-categories-bars");
+    if (!container) return;
+
+    container.innerHTML = Object.keys(catScores).map(key => {
+      const cat = catScores[key];
+      let colorClass = "bg-emerald-500";
+      if (cat.percentage < 60) colorClass = "bg-rose-500";
+      else if (cat.percentage < 80) colorClass = "bg-amber-500";
+
+      return `
+        <div class="mb-3">
+          <div class="flex justify-between text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <span>${cat.name}</span>
+            <span>${cat.passedCount}/${cat.totalCount} 通過 (${cat.percentage}%)</span>
+          </div>
+          <div class="w-full bg-slate-200 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden">
+            <div class="${colorClass} h-full rounded-full transition-all duration-700" style="width: ${cat.percentage}%"></div>
+          </div>
+        </div>
+      `;
+    }).join("");
+  },
+
+  renderWarningsUI(warnings) {
+    const container = document.getElementById("audit-warnings-container");
+    const countBadge = document.getElementById("audit-warnings-count");
+    if (!container) return;
+
+    if (countBadge) countBadge.textContent = `${warnings.length} 處注意`;
+
+    if (warnings.length === 0) {
+      container.innerHTML = `
+        <div class="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 rounded-xl text-emerald-800 dark:text-emerald-300 text-sm flex items-center gap-3">
+          <span class="text-2xl">🎉</span>
+          <div>
+            <strong>太棒了！無重大認知偏誤</strong>
+            <p class="text-xs mt-0.5">本草案在分母一致性、框架平衡與選項架構上表現優異。</p>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = warnings.map(w => `
+      <div class="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 rounded-xl text-slate-800 dark:text-slate-200 text-sm mb-3">
+        <div class="flex items-center gap-2 font-bold text-rose-700 dark:text-rose-400 mb-1">
+          <span>⚠️</span>
+          <span>${w.title}</span>
+        </div>
+        <p class="text-xs text-slate-600 dark:text-slate-300 mb-2 leading-relaxed">${w.description}</p>
+        <div class="bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-lg border border-rose-200 dark:border-rose-900 text-xs font-semibold text-rose-900 dark:text-rose-300 flex items-start gap-1.5">
+          <span>💡 處方：</span>
+          <span>${w.action}</span>
+        </div>
+      </div>
+    `).join("");
+  },
+
+  renderRecommendationsUI(recs) {
+    const container = document.getElementById("audit-recommendations-list");
+    if (!container) return;
+
+    if (recs.length === 0) {
+      container.innerHTML = `<p class="text-sm text-slate-500 py-2">無重大改進項目，草案符合黃金標準！</p>`;
+      return;
+    }
+
+    container.innerHTML = recs.map((r, idx) => `
+      <div class="p-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl mb-3">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">${r.categoryName}</span>
+          <span class="badge ${r.severity === 'high' ? 'badge-danger' : 'badge-warning'} text-xs">
+            ${r.severity === 'high' ? '必要修訂' : '建議優化'}
+          </span>
+        </div>
+        <h4 class="font-bold text-slate-800 dark:text-white text-sm mb-1">
+          ${idx + 1}. ${r.label}
+        </h4>
+        <p class="text-xs text-slate-600 dark:text-slate-300 mb-2 leading-relaxed">
+          ${r.suggestion}
+        </p>
+        <div class="text-xs text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/40 p-2 rounded-lg border border-teal-200 dark:border-teal-800">
+          <strong>人因工程依據：</strong> ${r.humanFactorsTip}
+        </div>
+      </div>
+    `).join("");
+  },
+
+  renderChecklistTable() {
+    const tbody = document.getElementById("audit-checklist-tbody");
+    if (!tbody || !this.state.auditReport) return;
+
+    let items = this.state.auditReport.itemsResult;
+
+    if (this.state.filterChecklist === "missing") {
+      items = items.filter(i => !i.passed);
+    } else if (this.state.filterChecklist === "passed") {
+      items = items.filter(i => i.passed);
+    }
+
+    tbody.innerHTML = items.map((item, idx) => {
+      const statusBadge = item.passed 
+        ? `<span class="px-2.5 py-1 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 rounded-full font-bold text-xs flex items-center gap-1 w-fit">✅ 通過</span>`
+        : `<span class="px-2.5 py-1 bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 rounded-full font-bold text-xs flex items-center gap-1 w-fit">❌ 遺漏/未達標</span>`;
+
+      return `
+        <tr class="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+          <td class="py-3 px-3 text-xs font-mono text-slate-400">${idx + 1}</td>
+          <td class="py-3 px-3">
+            <div class="font-bold text-slate-800 dark:text-slate-200 text-sm">${item.label}</div>
+            <div class="text-xs text-slate-500">${item.categoryName}</div>
+          </td>
+          <td class="py-3 px-3">${statusBadge}</td>
+          <td class="py-3 px-3 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+            <div>${item.reason}</div>
+            ${item.humanFactorsTip ? `<div class="text-teal-600 dark:text-teal-400 mt-1">💡 <em>${item.humanFactorsTip}</em></div>` : ''}
+          </td>
+        </tr>
+      `;
+    }).join("");
+  },
+
+  setChecklistFilter(filterType) {
+    this.state.filterChecklist = filterType;
+    document.querySelectorAll(".checklist-filter-btn").forEach(btn => {
+      if (btn.getAttribute("data-filter") === filterType) {
+        btn.classList.add("btn-primary");
+        btn.classList.remove("btn-secondary");
+      } else {
+        btn.classList.remove("btn-primary");
+        btn.classList.add("btn-secondary");
+      }
+    });
+    this.renderChecklistTable();
+  },
+
+  /**
+   * 渲染 AI 重構後的優質 PDA
+   */
+  renderOptimizedPDAUI() {
+    const opt = this.state.optimizedDoc;
+    if (!opt) return;
+
+    const doc = opt.structuredDoc;
+    const titleEl = document.getElementById("opt-pda-title");
+    const badgeEl = document.getElementById("opt-pda-badge");
+    const container = document.getElementById("opt-pda-content");
+    const changelogContainer = document.getElementById("opt-changelog-list");
+
+    if (titleEl) titleEl.textContent = doc.title;
+    if (badgeEl) badgeEl.textContent = doc.badge || "IPDAS 黃金標準版";
+
+    // 渲染 PDA 結構
+    if (container) {
+      container.innerHTML = `
+        <!-- Step 1 -->
+        <div class="pda-section mb-6">
+          <h3 class="text-lg font-bold text-teal-800 dark:text-teal-300 border-b-2 border-teal-500 pb-2 mb-3">
+            ${doc.step1_introduction.heading}
+          </h3>
+          <p class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-line leading-relaxed mb-3">
+            ${doc.step1_introduction.content}
+          </p>
+          <div class="bg-teal-50 dark:bg-teal-950/50 p-3 rounded-xl border border-teal-200 dark:border-teal-800 text-xs text-teal-900 dark:text-teal-200">
+            ${doc.step1_introduction.naturalCourse}
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="pda-section mb-6">
+          <h3 class="text-lg font-bold text-teal-800 dark:text-teal-300 border-b-2 border-teal-500 pb-2 mb-3">
+            ${doc.step2_options.heading}
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-${doc.step2_options.list.length} gap-4">
+            ${doc.step2_options.list.map(opt => `
+              <div class="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                <h4 class="font-bold text-slate-900 dark:text-white text-sm mb-2">${opt.name}</h4>
+                <div class="text-xs text-slate-600 dark:text-slate-300 space-y-1.5">
+                  <p><strong>流程：</strong> ${opt.procedure}</p>
+                  <p><strong>住院：</strong> ${opt.stay}</p>
+                  <p><strong>麻醉：</strong> ${opt.anesthesia}</p>
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+
+        <!-- Step 3 Comparison Matrix -->
+        <div class="pda-section mb-6">
+          <h3 class="text-lg font-bold text-teal-800 dark:text-teal-300 border-b-2 border-teal-500 pb-2 mb-2">
+            ${doc.step3_comparison.heading}
+          </h3>
+          <p class="text-xs text-slate-500 mb-3">
+            * 統計基準：${doc.step3_comparison.timeframe}，統一以 ${doc.step3_comparison.denominator} 進行雙向平衡呈現
+          </p>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm border-collapse border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+              <thead class="bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300">
+                <tr>
+                  <th class="p-3 border border-slate-200 dark:border-slate-700">指標項目 (雙向框架)</th>
+                  ${doc.step2_options.list.map(o => `<th class="p-3 border border-slate-200 dark:border-slate-700">${o.name.split('：')[1] || o.name}</th>`).join('')}
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-200 dark:divide-slate-700 text-xs">
+                ${doc.step3_comparison.matrix.map(row => `
+                  <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                    <td class="p-3 border border-slate-200 dark:border-slate-700 font-bold text-slate-800 dark:text-slate-200">
+                      ${row.indicator}
+                      <span class="block text-slate-400 font-normal text-xs mt-0.5">${row.desc}</span>
+                    </td>
+                    <td class="p-3 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">${row.optA}</td>
+                    <td class="p-3 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">${row.optB}</td>
+                    ${row.optC ? `<td class="p-3 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">${row.optC}</td>` : ''}
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Step 4 Values -->
+        <div class="pda-section mb-6">
+          <h3 class="text-lg font-bold text-teal-800 dark:text-teal-300 border-b-2 border-teal-500 pb-2 mb-3">
+            ${doc.step4_values.heading}
+          </h3>
+          <div class="space-y-3">
+            ${doc.step4_values.questions.map((q, i) => `
+              <div class="p-3.5 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-2">
+                <span class="text-xs font-semibold text-slate-800 dark:text-slate-200">${i + 1}. ${q.q}</span>
+                <div class="flex items-center gap-1.5 text-xs">
+                  <span class="text-slate-400 text-xs mr-1">不在意</span>
+                  ${[1, 2, 3, 4, 5].map(score => `
+                    <label class="cursor-pointer px-2.5 py-1 rounded bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 hover:border-teal-500 text-slate-700 dark:text-slate-200 font-bold text-xs">
+                      <input type="radio" name="val_q_${i}" value="${score}" class="mr-1"> ${score}
+                    </label>
+                  `).join('')}
+                  <span class="text-teal-600 font-semibold text-xs ml-1">極在乎</span>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- Step 5 Decision Talk -->
+        <div class="pda-section mb-4">
+          <h3 class="text-lg font-bold text-teal-800 dark:text-teal-300 border-b-2 border-teal-500 pb-2 mb-3">
+            ${doc.step5_decision_talk.heading}
+          </h3>
+          <div class="p-4 bg-teal-50 dark:bg-teal-950/60 rounded-xl border border-teal-200 dark:border-teal-800 text-xs text-slate-700 dark:text-slate-300 mb-4">
+            <strong class="text-teal-900 dark:text-teal-200 block mb-1">我的目前意向：</strong>
+            <p>${doc.step5_decision_talk.currentLean}</p>
+          </div>
+          <div class="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-300 mb-4">
+            <strong class="text-slate-900 dark:text-white block mb-2">我想向主治醫師討論的問題：</strong>
+            <ul class="list-disc pl-4 space-y-1">
+              ${doc.step5_decision_talk.questionsForDoctor.map(q => `<li>${q}</li>`).join('')}
+            </ul>
+          </div>
+          <div class="text-xs text-slate-500 space-y-1">
+            <p><em>${doc.step5_decision_talk.evidenceReference}</em></p>
+            <p><em>${doc.step5_decision_talk.coiStatement}</em></p>
+          </div>
+        </div>
+      `;
+    }
+
+    // 渲染修改回饋說明
+    if (changelogContainer && opt.changelog) {
+      changelogContainer.innerHTML = opt.changelog.map((ch, idx) => `
+        <div class="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 mb-3 text-xs">
+          <div class="flex items-center gap-2 font-bold text-teal-700 dark:text-teal-300 text-sm mb-2">
+            <span>✨ 修訂亮點 ${idx + 1}：</span>
+            <span>${ch.field}</span>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
+            <div class="p-2.5 bg-rose-50 dark:bg-rose-950/30 rounded border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300">
+              <strong>修訂前問題：</strong> ${ch.before}
+            </div>
+            <div class="p-2.5 bg-emerald-50 dark:bg-emerald-950/30 rounded border border-emerald-200 dark:border-emerald-900 text-emerald-800 dark:text-emerald-300">
+              <strong>AI 重構後：</strong> ${ch.after}
+            </div>
+          </div>
+          <div class="text-slate-500 dark:text-slate-400">
+            <strong>臨床與人因工程依據：</strong> ${ch.rationale}
+          </div>
+        </div>
+      `).join("");
+    }
+  },
+
+  /**
+   * 渲染 5 幕式 Video PDA 腳本工作室
+   */
+  renderScriptStudioUI() {
+    const script = this.state.videoScript;
+    if (!script) return;
+
+    const titleEl = document.getElementById("script-studio-title");
+    const durationEl = document.getElementById("script-studio-duration");
+    const scenesContainer = document.getElementById("script-scenes-container");
+
+    if (titleEl) titleEl.textContent = script.title;
+    if (durationEl) durationEl.textContent = `預估長度：${script.totalDurationFormatted}`;
+
+    if (scenesContainer) {
+      scenesContainer.innerHTML = script.scenes.map(s => `
+        <div class="scene-card p-5 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm mb-4">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-700 pb-3 mb-3">
+            <div class="flex items-center gap-2">
+              <span class="w-8 h-8 rounded-full bg-teal-600 text-white font-bold flex items-center justify-center text-xs">
+                ${s.sceneNumber}
+              </span>
+              <h3 class="font-bold text-base text-slate-900 dark:text-white">${s.actName}</h3>
+            </div>
+            <span class="badge badge-primary text-xs">${s.timing}</span>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 text-xs">
+            <!-- 視覺與 Prompt (5欄) -->
+            <div class="lg:col-span-5 space-y-3">
+              <div class="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-700">
+                <strong class="text-slate-700 dark:text-slate-300 block mb-1">🎬 畫面視覺分鏡描述：</strong>
+                <p class="text-slate-600 dark:text-slate-400 leading-relaxed">${s.visualDescription}</p>
+              </div>
+
+              <div class="p-3 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl border border-indigo-200 dark:border-indigo-800">
+                <div class="flex items-center justify-between mb-1">
+                  <strong class="text-indigo-900 dark:text-indigo-300">🤖 AI 繪圖 Prompt (Midjourney/Sora)：</strong>
+                  <button onclick="App.copyText('${s.aiImagePrompt.replace(/'/g, "\\'")}')" class="text-indigo-600 hover:text-indigo-800 font-bold">複製</button>
+                </div>
+                <code class="text-indigo-800 dark:text-indigo-300 font-mono text-2xs block select-all">
+                  ${s.aiImagePrompt}
+                </code>
+              </div>
+            </div>
+
+            <!-- 旁白與字幕 (7欄) -->
+            <div class="lg:col-span-7 space-y-3">
+              <div class="p-3.5 bg-teal-50 dark:bg-teal-950/40 rounded-xl border border-teal-200 dark:border-teal-800">
+                <div class="flex items-center justify-between mb-1">
+                  <strong class="text-teal-900 dark:text-teal-300 flex items-center gap-1.5">
+                    <span>🎙️</span> 旁白配音台詞 (Voiceover)：
+                  </strong>
+                  <button onclick="MediaPlayer.playScene(${s.sceneNumber - 1})" class="px-2 py-0.5 rounded bg-teal-600 text-white font-bold hover:bg-teal-700 text-xs">
+                    試聽朗讀
+                  </button>
+                </div>
+                <p class="text-sm font-medium text-teal-950 dark:text-teal-100 leading-relaxed">
+                  "${s.voiceoverText}"
+                </p>
+              </div>
+
+              <div class="p-2.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-700">
+                <strong class="text-slate-700 dark:text-slate-300 block mb-1">📺 字卡 (On-Screen Text)：</strong>
+                <span class="text-slate-600 dark:text-slate-300">${s.onScreenText}</span>
+              </div>
+
+              <div class="text-teal-700 dark:text-teal-400 bg-teal-500/10 p-2 rounded-lg border border-teal-500/20">
+                <strong>人因工程視聽引導：</strong> ${s.humanFactorsGuidance}
+              </div>
+            </div>
+          </div>
+        </div>
+      `).join("");
+    }
+  },
+
+  generateVideoScript() {
+    if (!this.state.optimizedDoc) {
+      this.state.optimizedDoc = OptimizerEngine.optimize(
+        ParserEngine.parse(this.state.rawInputText),
+        AuditEngine.evaluate(ParserEngine.parse(this.state.rawInputText))
+      );
+    }
+    this.state.videoScript = ScriptEngine.generateScript(this.state.optimizedDoc);
+    this.renderScriptStudioUI();
+  },
+
+  /**
+   * 匯出 Markdown 檔案
+   */
+  exportMarkdown() {
+    if (!this.state.optimizedDoc) {
+      alert("請先執行品質檢核與優化！");
+      return;
+    }
+    const md = this.state.optimizedDoc.fullMarkdownText;
+    this.downloadFile("IPDAS_Optimized_PDA.md", md, "text/markdown");
+    this.showToast("已成功匯出 Markdown 檔案！");
+  },
+
+  /**
+   * 匯出完整分鏡腳本與 Prompt 包
+   */
+  exportScriptText() {
+    if (!this.state.videoScript) {
+      this.generateVideoScript();
+    }
+    const script = this.state.videoScript;
+    let content = `# ${script.title}\n\n`;
+    content += `目標族群：${script.targetAudience}\n`;
+    content += `預估長度：${script.totalDurationFormatted}\n\n`;
+
+    script.scenes.forEach(s => {
+      content += `==========================================\n`;
+      content += `【${s.actName}】 (秒數: ${s.timing})\n`;
+      content += `標題：${s.title}\n\n`;
+      content += `[畫面視覺]:\n${s.visualDescription}\n\n`;
+      content += `[AI Prompt (Midjourney/Sora)]:\n${s.aiImagePrompt}\n\n`;
+      content += `[口語旁白 Voiceover]:\n"${s.voiceoverText}"\n\n`;
+      content += `[字卡 OST]:\n${s.onScreenText}\n\n`;
+      content += `[人因視聽指引]:\n${s.humanFactorsGuidance}\n\n`;
+    });
+
+    content += `==========================================\n`;
+    content += `【AI 工具 Prompt 專用包】\n\n`;
+    content += `■ Runway Gen-3 Prompt:\n`;
+    script.promptPacks.runway.forEach(r => {
+      content += `Scene ${r.sceneNumber}: ${r.textPrompt}\n`;
+    });
+
+    this.downloadFile("Video_PDA_5Act_Script_and_Prompts.txt", content, "text/plain");
+    this.showToast("已成功匯出 5 幕式分鏡腳本與 AI 提示詞包！");
+  },
+
+  /**
+   * 匯出研討會學員演練 JSON 數據 (用於資料收集)
+   */
+  exportSessionJSON() {
+    const bundle = {
+      exportedAt: new Date().toISOString(),
+      rawInput: this.state.rawInputText,
+      diseaseName: this.state.diseaseName,
+      targetAudience: this.state.targetAudience,
+      auditReport: this.state.auditReport,
+      optimizedDoc: this.state.optimizedDoc,
+      videoScript: this.state.videoScript
+    };
+
+    const jsonStr = JSON.stringify(bundle, null, 2);
+    this.downloadFile("IPDAS_Workshop_Data.json", jsonStr, "application/json");
+    this.showToast("已匯出研討會演練 JSON 數據包！");
+  },
+
+  /**
+   * 觸發瀏覽器列印為醫療級 PDF
+   */
+  printPDA() {
+    window.print();
+  },
+
+  downloadFile(filename, content, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
+
+  copyText(text) {
+    navigator.clipboard.writeText(text).then(() => {
+      this.showToast("已成功複製至剪貼簿！");
+    }).catch(() => {
+      alert("複製失敗，請手動選取複製。");
+    });
+  },
+
+  showToast(msg) {
+    const toast = document.getElementById("app-toast");
+    if (!toast) return;
+    toast.textContent = msg;
+    toast.classList.remove("opacity-0", "translate-y-4");
+    toast.classList.add("opacity-100", "translate-y-0");
+
+    setTimeout(() => {
+      toast.classList.add("opacity-0", "translate-y-4");
+      toast.classList.remove("opacity-100", "translate-y-0");
+    }, 3000);
+  },
+
+  showLoading(show, message = "處理中...") {
+    const modal = document.getElementById("loading-modal");
+    const msgEl = document.getElementById("loading-msg");
+    if (!modal) return;
+
+    if (msgEl) msgEl.textContent = message;
+    if (show) {
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+    } else {
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+  }
+};
+
+window.App = App;
+
+document.addEventListener("DOMContentLoaded", () => {
+  App.init();
+});
+
+
+</script>
+</body>
+</html>
